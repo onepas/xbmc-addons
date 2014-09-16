@@ -24,6 +24,7 @@ __mp3_quality = __settings__.getSetting('mp3_quality') #values="32K|128K|320K|Lo
 __thumbnails = []
 
 def get_thumbnail_url():
+  global __thumbnails
   url = ''
   try:
     if len(__thumbnails) == 0:
