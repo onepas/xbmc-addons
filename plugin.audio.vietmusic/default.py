@@ -19,7 +19,7 @@ thumbnails = xbmc.translatePath( os.path.join( home, 'thumbnails\\' ) )
 
  
 __video_quality = __settings__.getSetting('video_quality') #values="240p|360p|480p|720p|1080p"
-__mp3_quality = __settings__.getSetting('mp3_quality') #values="32K|128K|320K|Lossless"
+__mp3_quality = __settings__.getSetting('mp3_quality') #values="32K|128K|320K|500K|Lossless"
 
 __thumbnails = []
 
@@ -283,11 +283,15 @@ def get_resolve_url(url):
 
 def extract_link_with_quality(video_quality, mp3_quality, url):
   #video="240p|360p|480p|720p|1080p"
-  #mp3="32k|128k|320k|Lossless"
-  if mp3_quality == 'Lossless':
+  #mp3="32k|128k|320k|500k|Lossless"
+  if mp3_quality == '500k':
       mp3_quality = 'm4a'
+  if mp3_quality == 'Lossless':
+      mp3_quality = 'flac'
 
   mp3_q = '128'
+  if mp3_quality == 'flac':
+      mp3_q = 'flac'
   if mp3_quality == 'm4a':
       mp3_q = 'm4a'
   if mp3_quality == '320k':
@@ -330,12 +334,16 @@ def extract_link_with_quality(video_quality, mp3_quality, url):
   items = soup.find('div',{'class' : 'gen'}).findAll('img')
   quality_availables  = ''
   for item in items:
-      quality_availables += item.get('src') + ','
+    quality_availables += item.get('src') + ','
 
   if video_quality not in quality_availables:
-      video_q = '128'
+    video_q = '128'
+
   if mp3_quality not in quality_availables:
-      mp3_q = '128'
+    mp3_q = '128'
+
+  if (mp3_quality == 'flac') and ('m4a' in quality_availables):
+    mp3_q = 'flac'
 
   parts = media_link.split('/')
 
@@ -343,6 +351,8 @@ def extract_link_with_quality(video_quality, mp3_quality, url):
       parts[len(parts) - 2] = video_q
   if media_link.endswith('mp3.csn'):
       parts[len(parts) - 2] = mp3_q
+      if mp3_q == 'flac':
+          parts[len(parts) - 1] = parts[len(parts) - 1].replace('.mp3.csn','.flac.csn')
       if mp3_q == 'm4a':
           parts[len(parts) - 1] = parts[len(parts) - 1].replace('.mp3.csn','.m4a.csn')
 
@@ -435,19 +445,40 @@ print "page: "+str(page)
 print "query: "+str(query)
 
 if mode==None:
-  get_categories()
+  try: 
+    get_categories()
+  except:
+    pass
 elif mode==1:
-  get_sub_categories(url,mode)
+  try:
+    get_sub_categories(url,mode)
+  except:
+    pass
 elif mode==4:
-  resolve_url(url)
+  try:
+    resolve_url(url)
+  except:
+    pass
 elif mode==10:
-  search(url)
+  try:
+    search(url)
+  except:
+    pass
 elif mode==100:
-  get_chiasenhac(url)
+  try:
+    get_chiasenhac(url)
+  except:
+    pass
 elif mode==101:
-  get_chiasenhac_album(url)
+  try:
+    get_chiasenhac_album(url)
+  except:
+    pass
 elif mode==102:
-  get_chiasenhac_album_songs(url)
+  try:
+    get_chiasenhac_album_songs(url)
+  except:
+    pass
 elif mode==99:
    __settings__.openSettings()
    
