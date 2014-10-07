@@ -9,7 +9,7 @@ import xbmcaddon
 import urlfetch
 import re
 import random
-import threading
+
 from BeautifulSoup import BeautifulSoup
 
 __settings__ = xbmcaddon.Addon(id='plugin.audio.vietmusic')
@@ -80,27 +80,21 @@ def get_chiasenhac(url = None):
     content = make_request(url)
     soup = BeautifulSoup(str(content), convertEntities=BeautifulSoup.HTML_ENTITIES)
     tables = soup.findAll('table',{'class' : 'tbtable'})
-    threads = []
     for table in tables:
       items = table.findAll('a')
       for item in items:
         href = item.get('href')
         text = item.text.strip()
         if len(text) > 0:
-          if 'playlist.chiasenhac.com' in href:  
-            t = threading.Thread(target=add_link, args = ('', text, 0, href, get_thumbnail_url(), ''))
-            threads.append(t)
-          else:
-            add_dir(text, 'http://chiasenhac.com/' + href, 100, get_thumbnail_url(), '', '', 0)
-    [x.start() for x in threads]
-    [x.join() for x in threads]
+          if 'playlist.chiasenhac.com' in href:
+            if '.html' in href:
+              add_link('', text, 0, href, get_thumbnail_url(), '')
     return   
 
   if '/hd/video/' in url:
     content = make_request(url)
     soup = BeautifulSoup(str(content), convertEntities=BeautifulSoup.HTML_ENTITIES)
     tables = soup.findAll('div',{'class' : 'list-l list-1'})
-    threads = []
     for table in tables:
       item = table.find('div', {'class':'info'}).find('a')
       href = item.get('href')
@@ -108,28 +102,22 @@ def get_chiasenhac(url = None):
       if 'playlist.chiasenhac.com' not in href:
         href = 'http://playlist.chiasenhac.com/' + href
       img = table.find('div', {'class':'gensmall'}).find('a').find('img')
-      t = threading.Thread(target=add_link, args = ('', text, 0, href, img.get('src'), ''))
-      threads.append(t)
-    [x.start() for x in threads]
-    [x.join() for x in threads]
+      add_link('', text, 0, href, img.get('src'), '')
+
     return  
 
   if '/mp3/beat-playback/' in url or '/mp3/vietnam/' in url or '/mp3/thuy-nga/' in url or '/mp3/us-uk/' in url or '/mp3/chinese/' in url or '/mp3/korea/' in url or '/mp3/other/' in url:
     content = make_request(url)
     soup = BeautifulSoup(str(content), convertEntities=BeautifulSoup.HTML_ENTITIES)
     tables = soup.findAll('div',{'class' : 'list-r list-1'})
-    threads = []
     for table in tables:
       item = table.find('div', {'class':'text2'}).find('a')
       href = item.get('href')
       text = item.get('title')
       if 'playlist.chiasenhac.com' not in href:
         href = 'http://playlist.chiasenhac.com/' + href   
-      t = threading.Thread(target=add_link, args = ('', text, 0, href, get_thumbnail_url(), ''))
-      threads.append(t)
-    [x.start() for x in threads]
-    [x.join() for x in threads]
-    
+      add_link('', text, 0, href, get_thumbnail_url(), '')
+      
     return
   return
 
@@ -168,18 +156,13 @@ def get_chiasenhac_album_songs(url = None):
   soup = BeautifulSoup(str(content), convertEntities=BeautifulSoup.HTML_ENTITIES)
 
   albums = soup.find('div',{'id':'playlist'}).findAll('span',{'class' : 'gen'})
-  threads = []
   for album in albums:
     a = album.findAll('a')
     if (len(a) == 3):
       href = 'http://chiasenhac.com/' + a[1].get('href')
       text = album.text;
-      t = threading.Thread(target=add_link, args = ('', text, 0, href, get_thumbnail_url(), ''))
-      threads.append(t)
+      add_link('', text, 0, href, get_thumbnail_url(), '')
       
-  [x.start() for x in threads]
-  [x.join() for x in threads]
-
   return 
 
 def get_categories():
@@ -232,7 +215,6 @@ def search(url):
   content = make_request(url)
   soup = BeautifulSoup(str(content), convertEntities=BeautifulSoup.HTML_ENTITIES)
   items = soup.findAll('div',{'class' : 'tenbh'})
-  threads = []
   for item in items:
     a = item.find('a')
     p = item.findAll('p')[1]
@@ -240,10 +222,8 @@ def search(url):
       href = a.get('href')
       if 'chiasenhac.com' not in href:
         href = 'http://chiasenhac.com/' + href   
-      t = threading.Thread(target=add_link, args = ('', a.text + '-' + p.text, 0, href, get_thumbnail_url(), ''))
-      threads.append(t)
-  [x.start() for x in threads]
-  [x.join() for x in threads]
+      add_link('', a.text + '-' + p.text, 0, href, get_thumbnail_url(), '')
+      
   return
 
 def search_albums(url):
@@ -279,43 +259,12 @@ def search_albums(url):
 
 def resolve_url(url):
 
-  content = make_request(url)
-  soup = BeautifulSoup(str(content), convertEntities=BeautifulSoup.HTML_ENTITIES)
-  items = soup.find('noscript').find('object').findAll('param')
-  for item in items:
-      name = item.get('name')
-      if name is not None and name == 'FlashVars':
-          value = urllib.unquote(item.get('value'))
-          pairsofparams=value.split('&')
-          for i in range(len(pairsofparams)):
-              splitparams=pairsofparams[i].split('=')
-              if splitparams[0] == 'audioUrl' or splitparams[0] == 'file':
-                  mediaUrl = splitparams[1]
-                  xbmc.Player().play(mediaUrl)
-                  return
-                  break
-    
-
+  mediaUrl=extract_link_with_quality(__video_quality, __mp3_quality, url)
+  listitem = xbmcgui.ListItem(path=mediaUrl)
+  xbmcplugin.setResolvedUrl(int(sys.argv[1]), True, listitem)
+  
   return
 
-def get_resolve_url(url):
-  content = make_request(url)
-  soup = BeautifulSoup(str(content), convertEntities=BeautifulSoup.HTML_ENTITIES)
-  items = soup.find('noscript').find('object').findAll('param')
-  for item in items:
-      name = item.get('name')
-      if name is not None and name == 'FlashVars':
-          value = urllib.unquote(item.get('value'))
-          pairsofparams=value.split('&')
-          for i in range(len(pairsofparams)):
-              splitparams=pairsofparams[i].split('=')
-              if splitparams[0] == 'audioUrl' or splitparams[0] == 'file':
-                  mediaUrl = splitparams[1]
-                  return mediaUrl
-                  break
-    
-
-  return
 
 def extract_link_with_quality(video_quality, mp3_quality, url):
   #video="240p|360p|480p|720p|1080p"
@@ -398,14 +347,14 @@ def extract_link_with_quality(video_quality, mp3_quality, url):
 def add_link(date, name, duration, href, thumb, desc):
 
     description = date+'\n\n'+desc
-    u=extract_link_with_quality(__video_quality, __mp3_quality, href)
+    
+    #u=extract_link_with_quality(__video_quality, __mp3_quality, href)
+    u=sys.argv[0]+"?url="+urllib.quote_plus(href)+"&mode=4"
 
     liz=xbmcgui.ListItem(name, iconImage="DefaultVideo.png", thumbnailImage=thumb)
     liz.setInfo(type="Video", infoLabels={ "Title": name, "Plot": description, "Duration": duration})
-    if 'chiasenhac' in href:
-      liz.setProperty('IsPlayable', 'false')
-    else:
-      liz.setProperty('IsPlayable', 'true')
+    
+    liz.setProperty('IsPlayable', 'true')
 
     ok=xbmcplugin.addDirectoryItem(handle=int(sys.argv[1]),url=u,listitem=liz)
 
