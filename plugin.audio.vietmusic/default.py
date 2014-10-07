@@ -1,4 +1,5 @@
-﻿import CommonFunctions as common
+﻿# -*- coding: utf-8 -*-
+import CommonFunctions as common
 import urllib
 import urllib2
 import os
@@ -154,8 +155,10 @@ def get_chiasenhac_album(url = None):
     href = album.find('a', {'class' : 'musictitle'})
     title = href.get('title')
     link = href.get('href')
-    thumb = albums_thumbs[link]
-
+    thumb = None
+    if link in albums_thumbs:
+      thumb = albums_thumbs[link]
+    
     add_dir(title, link, 102, thumb, query, type, 0)
     
   return   
@@ -190,6 +193,7 @@ def get_categories():
     add_dir('Nhạc Hàn','mp3/korea/', 1,  get_thumbnail_url(), query, type, 0)
     add_dir('Nước Khác','mp3/other/', 1,  get_thumbnail_url(), query, type, 0)
     add_dir('Tìm kiếm Video/Nhạc','', 10, get_thumbnail_url(), query, type, 0)
+    add_dir('Tìm kiếm Albums','', 11, get_thumbnail_url(), query, type, 0)
     add_dir('Add-on settings', '', 99, get_thumbnail_url(), query, type, 0)
     
 
@@ -217,6 +221,7 @@ def get_sub_categories(url, mode):
       except:
         pass
   add_dir('Tìm kiếm Video/Nhạc','', 10, get_thumbnail_url(), query, type, 0)
+  add_dir('Tìm kiếm Albums','', 11, get_thumbnail_url(), query, type, 0)
   return
  
 def search(url):
@@ -239,6 +244,37 @@ def search(url):
       threads.append(t)
   [x.start() for x in threads]
   [x.join() for x in threads]
+  return
+
+def search_albums(url):
+  #http://search.chiasenhac.com/search.php?s=bai+hat&mode=album
+  query = common.getUserInput('Search', '')
+  if query is None:
+    return
+  url = 'http://search.chiasenhac.com/search.php?mode=album&s=' + urllib.quote_plus(query)
+  content = make_request(url)
+  soup = BeautifulSoup(str(content), convertEntities=BeautifulSoup.HTML_ENTITIES)
+  thumbs = soup.find('table',{'class' : 'tbtable'}).findAll('span',{'class' : 'genmed'})
+  albums_thumbs = {}
+  for thumb in thumbs:
+    img = thumb.find('img')
+    href = thumb.find('a')
+    if (img is not None) and (href is not None):
+      a = img.get('src');
+      b = href.get('href')
+      albums_thumbs[b] = a
+
+  albums = soup.find('table',{'class' : 'tbtable'}).findAll('span',{'class' : 'gen'})
+  for album in albums:
+    href = album.find('a')
+    if href is not None:
+      link = href.get('href')
+      title = album.text.replace(u'(Xem chi tiết...)','').replace('Lossless',' - Lossless').replace('320kbps',' - 320kbps').replace('192kbps',' - 192kbps').replace('128kbps',' - 128kbps')
+      thumb = None
+      if link in albums_thumbs:
+        thumb = albums_thumbs[link]
+      
+      add_dir(title, link, 102, thumb, query, type, 0)
   return
 
 def resolve_url(url):
@@ -437,12 +473,6 @@ try:
 except:
     pass
 
-print "Mode: "+str(mode)
-print "URL: "+str(url)
-print "Name: "+str(name)
-print "type: "+str(type)
-print "page: "+str(page)
-print "query: "+str(query)
 
 if mode==None:
   try: 
@@ -462,6 +492,11 @@ elif mode==4:
 elif mode==10:
   try:
     search(url)
+  except:
+    pass
+elif mode==11:
+  try:
+    search_albums(url)
   except:
     pass
 elif mode==100:
