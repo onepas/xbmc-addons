@@ -68,27 +68,35 @@ def get_chiasenhac(url = None):
     soup = BeautifulSoup(str(content), convertEntities=BeautifulSoup.HTML_ENTITIES)
     items = soup.find('div',{'id' : 'myslidemenu'}).find('ul').findAll('li')
     for item in items:
-      href = item.a.get('href')
-      if href is not None:
-        try:
-          add_dir(item.a.text, 'http://chiasenhac.com/' + href, 100, get_thumbnail_url(), query, type, 0)
-        except:
-          pass
+      if item.a is not None:
+        href = item.a.get('href')
+        if href is not None:
+          try:
+            add_dir(item.a.text, 'http://chiasenhac.com/' + href, 100, get_thumbnail_url(), query, type, 0)
+          except:
+            pass
     return
   
   if '/mp3/hot/' in url:  
     content = make_request(url)
     soup = BeautifulSoup(str(content), convertEntities=BeautifulSoup.HTML_ENTITIES)
     tables = soup.findAll('table',{'class' : 'tbtable'})
+    total = len(tables)
+    i = 1 
     for table in tables:
-      items = table.findAll('a')
-      for item in items:
-        href = item.get('href')
-        text = item.text.strip()
-        if len(text) > 0:
-          if 'playlist.chiasenhac.com' in href:
-            if '.html' in href:
-              add_link('', text, 0, href, get_thumbnail_url(), '')
+      if i < total: #Khong lay list nhac nuoc khac
+        items = table.findAll('a')
+        for item in items:
+          href = item.get('href')
+          text = item.get('title')
+          if (text is not None) and (len(text) > 0): #khong lay video
+            if 'playlist.chiasenhac.com' in href:
+              if '.html' in href: 
+                thumb = ''
+                if i> 1:
+                  thumb = get_thumbnail_url()
+                add_link('', text, 0, href, thumb, '')
+      i = i+1
     return   
 
   if '/hd/video/' in url:
@@ -258,11 +266,12 @@ def search_albums(url):
   return
 
 def resolve_url(url):
-
-  mediaUrl=extract_link_with_quality(__video_quality, __mp3_quality, url)
-  listitem = xbmcgui.ListItem(path=mediaUrl)
-  xbmcplugin.setResolvedUrl(int(sys.argv[1]), True, listitem)
-  
+  try:
+    mediaUrl=extract_link_with_quality(__video_quality, __mp3_quality, url)
+    listitem = xbmcgui.ListItem(path=mediaUrl)
+    xbmcplugin.setResolvedUrl(int(sys.argv[1]), True, listitem)
+  except:
+    pass
   return
 
 
