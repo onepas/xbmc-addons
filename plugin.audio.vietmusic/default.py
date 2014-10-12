@@ -266,7 +266,7 @@ def get_sub_categories(url, mode):
   return
  
 def search(query = '', page = 0, mode = 10, cat = 'music'):
-  if query == '':
+  if len(query)==0:
     query = common.getUserInput('Search', '')
     if query is None:
       return
@@ -298,7 +298,7 @@ def search(query = '', page = 0, mode = 10, cat = 'music'):
 
 def search_albums(start, query, page):
   #http://search.chiasenhac.com/search.php?s=bai+hat&mode=album&page=2&start=221
-  if query == '':
+  if len(query) == 0:
     query = common.getUserInput('Search', '')
     if query is None:
       return
