@@ -62,7 +62,7 @@ def make_request(url, headers=None):
             if hasattr(e, 'code'):
                 print 'We failed with error code - %s.' % e.code
 
-def get_chiasenhac(url = None):
+def get_chiasenhac(url = None, page = 0):
   if url == '':
     content = make_request('http://chiasenhac.com')
     soup = BeautifulSoup(str(content), convertEntities=BeautifulSoup.HTML_ENTITIES)
@@ -80,23 +80,21 @@ def get_chiasenhac(url = None):
   if '/mp3/hot/' in url:  
     content = make_request(url)
     soup = BeautifulSoup(str(content), convertEntities=BeautifulSoup.HTML_ENTITIES)
-    tables = soup.findAll('table',{'class' : 'tbtable'})
-    total = len(tables)
-    i = 1 
+    tables = soup.findAll('tr',{'class' : '2'})
     for table in tables:
-      if i < total: #Khong lay list nhac nuoc khac
-        items = table.findAll('a')
-        for item in items:
-          href = item.get('href')
-          text = item.get('title')
-          if (text is not None) and (len(text) > 0): #khong lay video
-            if 'playlist.chiasenhac.com' in href:
-              if '.html' in href: 
-                thumb = ''
-                if i> 1:
-                  thumb = get_thumbnail_url()
-                add_link('', text, 0, href, thumb, '')
-      i = i+1
+      item = table.find('a', {'class':'musictitle'})
+      if item is not None:
+        href = item.get('href')
+        text = item.get('title')
+        if text is not None:
+          if 'chiasenhac.com' not in href:
+            href = 'http://chiasenhac.com/' + href
+          quality = table.find('span', {'style':['color: red','color: orange','color: darkblue','color: darkgreen']})
+          if quality is not None:
+            quality = '[' + quality.text + '] '
+          else:
+            quality = '';
+          add_link('', quality + text, 0, href, get_thumbnail_url(), '')
     return   
 
   if '/hd/video/' in url:
@@ -110,31 +108,69 @@ def get_chiasenhac(url = None):
       if 'playlist.chiasenhac.com' not in href:
         href = 'http://playlist.chiasenhac.com/' + href
       img = table.find('div', {'class':'gensmall'}).find('a').find('img')
-      add_link('', text, 0, href, img.get('src'), '')
+      quality = table.find('span', {'style':['color: red','color: orange','color: darkblue','color: darkgreen']})
+      if quality is not None:
+        quality = '[' + quality.text + '] '
+      else:
+        quality = '';
+      add_link('', quality + text, 0, href, img.get('src'), '')
+
+    url_parts = url.split('/')
+    if page == 0:
+      page = 2
+    url_parts[len(url_parts) -1] = 'new' + str(page) + '.html'
+    add_dir(u'Trang tiếp >>', '/'.join(url_parts) , 100, get_thumbnail_url(), query, type, page + 1)
 
     return  
 
   if '/mp3/beat-playback/' in url or '/mp3/vietnam/' in url or '/mp3/thuy-nga/' in url or '/mp3/us-uk/' in url or '/mp3/chinese/' in url or '/mp3/korea/' in url or '/mp3/other/' in url:
     content = make_request(url)
     soup = BeautifulSoup(str(content), convertEntities=BeautifulSoup.HTML_ENTITIES)
-    tables = soup.findAll('div',{'class' : 'list-r list-1'})
-    for table in tables:
-      item = table.find('div', {'class':'text2'}).find('a')
-      href = item.get('href')
-      text = item.get('title')
-      if 'playlist.chiasenhac.com' not in href:
-        href = 'http://playlist.chiasenhac.com/' + href   
-      add_link('', text, 0, href, get_thumbnail_url(), '')
-      
+    if page == 0:
+      tables = soup.findAll('div',{'class' : 'list-r list-1'})
+      for table in tables:
+        item = table.find('div', {'class':'text2'}).find('a')
+        href = item.get('href')
+        text = item.get('title')
+        if 'playlist.chiasenhac.com' not in href:
+          href = 'http://playlist.chiasenhac.com/' + href
+        quality = table.find('div',{'class':'texte2'}).find('span', {'style':['color: red','color: orange','color: darkblue','color: darkgreen']})
+        if quality is not None:
+          quality = '[' + quality.text + '] '
+        else:
+          quality = '';
+        add_link('', quality + text, 0, href, get_thumbnail_url(), '')
+    else:
+      tables = soup.findAll('tr',{'class' : '2'})
+      for table in tables:
+        item = table.find('a', {'class':'musictitle'})
+        if item is not None:
+          href = item.get('href')
+          text = item.parent.text.replace(item.text, item.text + ' - ')
+          if 'chiasenhac.com' not in href:
+            href = 'http://chiasenhac.com/' + href
+          quality = table.find('span', {'style':['color: red','color: orange','color: darkblue','color: darkgreen']})
+          if quality is not None:
+            quality = '[' + quality.text + '] '
+          else:
+            quality = '';
+          add_link('', quality + text, 0, href, get_thumbnail_url(), '')
+    
+    url_parts = url.split('/')
+    if page == 0:
+      page = 1
+    url_parts[len(url_parts) -1] = 'new' + str(page) + '.html'
+    add_dir(u'Trang tiếp >>', '/'.join(url_parts) , 100, get_thumbnail_url(), query, type, page + 1)
+    
     return
   return
 
-def get_chiasenhac_album(url = None):
+def get_chiasenhac_album(url = None, page = 0):
   
   #content = make_request(url)
   #soup = BeautifulSoup(str(content), convertEntities=BeautifulSoup.HTML_ENTITIES) 
   #album_url = 'http://chiasenhac.com/' + soup.find('th',{'class' : 'catLeft'}).find('a').get('href')
-  album_url = url + 'album.html'
+  album_url = url
 
   content = make_request(album_url)
   soup = BeautifulSoup(str(content), convertEntities=BeautifulSoup.HTML_ENTITIES)
@@ -155,8 +191,20 @@ def get_chiasenhac_album(url = None):
     if link in albums_thumbs:
       thumb = albums_thumbs[link]
     
-    add_dir(title, link, 102, thumb, query, type, 0)
-    
+    quality = href.parent.find('span', {'style':['color: red','color: orange','color: darkblue','color: darkgreen']})
+    if quality is not None:
+      quality = '[' + quality.text + '] '
+    else:
+      quality = '';
+    add_dir(quality + title, link, 102, thumb, query, type, 0)
+  
+  url_parts = url.split('/')
+  if page == 0:
+    page = 2
+  if page < 3:
+    url_parts[len(url_parts) -1] = 'album' + str(page) + '.html'
+    add_dir(u'Trang tiếp >>', '/'.join(url_parts) , 101, get_thumbnail_url(), query, type, page + 1)
+
   return   
 
 def get_chiasenhac_album_songs(url = None):
@@ -174,18 +222,19 @@ def get_chiasenhac_album_songs(url = None):
   return 
 
 def get_categories():
-    add_dir('Xếp hạng', 'mp3/hot/', 1,  get_thumbnail_url(), query, type, 0)
-    add_dir('Video Clip','hd/video/', 1,  get_thumbnail_url(), query, type, 0)
-    add_dir('Playback','mp3/beat-playback/', 1,  get_thumbnail_url(), query, type, 0)
-    add_dir('Việt Nam','mp3/vietnam/', 1,  get_thumbnail_url(), query, type, 0)
-    add_dir('Thuý Nga','mp3/thuy-nga/', 1,  get_thumbnail_url(), query, type, 0)
-    add_dir('Âu, Mỹ','mp3/us-uk/', 1,  get_thumbnail_url(), query, type, 0)
-    add_dir('Nhạc Hoa','mp3/chinese/', 1,  get_thumbnail_url(), query, type, 0)
-    add_dir('Nhạc Hàn','mp3/korea/', 1,  get_thumbnail_url(), query, type, 0)
-    add_dir('Nước Khác','mp3/other/', 1,  get_thumbnail_url(), query, type, 0)
-    add_dir('Tìm kiếm Video/Nhạc','', 10, get_thumbnail_url(), query, type, 0)
-    add_dir('Tìm kiếm Albums','', 11, get_thumbnail_url(), query, type, 0)
-    add_dir('Add-on settings', '', 99, get_thumbnail_url(), query, type, 0)
+  add_dir('Xếp hạng', 'mp3/hot/', 1,  get_thumbnail_url(), '', type, 0)
+  add_dir('Video Clip','hd/video/', 1,  get_thumbnail_url(), '', type, 0)
+  add_dir('Playback','mp3/beat-playback/', 1,  get_thumbnail_url(), '', type, 0)
+  add_dir('Việt Nam','mp3/vietnam/', 1,  get_thumbnail_url(), '', type, 0)
+  add_dir('Thuý Nga','mp3/thuy-nga/', 1,  get_thumbnail_url(), '', type, 0)
+  add_dir('Âu, Mỹ','mp3/us-uk/', 1,  get_thumbnail_url(), '', type, 0)
+  add_dir('Nhạc Hoa','mp3/chinese/', 1,  get_thumbnail_url(), '', type, 0)
+  add_dir('Nhạc Hàn','mp3/korea/', 1,  get_thumbnail_url(), '', type, 0)
+  add_dir('Nước Khác','mp3/other/', 1,  get_thumbnail_url(), '', type, 0)
+  add_dir('Tìm kiếm Nhạc','', 10, get_thumbnail_url(), '', type, 0)
+  add_dir('Tìm kiếm Video','', 12, get_thumbnail_url(), '', type, 0)
+  add_dir('Tìm kiếm Album','', 11, get_thumbnail_url(), '', type, 0)
+  add_dir('Add-on settings', '', 99, get_thumbnail_url(), '', type, 0)
     
 
 def get_sub_categories(url, mode):
@@ -208,38 +257,54 @@ def get_sub_categories(url, mode):
     if href is not None:
       try:
         if url != 'mp3/hot/' and url !='hd/video/' and href.startswith(url) and len(href) > len(url):
-          add_dir('Albums: ' + item.a.text, 'http://chiasenhac.com/' + href, 101, get_thumbnail_url(), query, type, 0)
+          add_dir('Albums: ' + item.a.text, 'http://chiasenhac.com/' + href + 'album.html', 101, get_thumbnail_url(), query, type, 0)
       except:
         pass
-  add_dir('Tìm kiếm Video/Nhạc','', 10, get_thumbnail_url(), query, type, 0)
-  add_dir('Tìm kiếm Albums','', 11, get_thumbnail_url(), query, type, 0)
+  add_dir('Tìm kiếm Nhạc','', 10, get_thumbnail_url(), '', type, 0)
+  add_dir('Tìm kiếm Video','', 12, get_thumbnail_url(), '', type, 0)
+  add_dir('Tìm kiếm Album','', 11, get_thumbnail_url(), '', type, 0)
   return
  
-def search(url):
-  query = common.getUserInput('Search', '')
-  if query is None:
-    return
-  url = 'http://search.chiasenhac.com/search.php?s=' + urllib.quote_plus(query)
+def search(query = '', page = 0, mode = 10, cat = 'music'):
+  if query == '':
+    query = common.getUserInput('Search', '')
+    if query is None:
+      return
+  if page == 0:
+    page = 1
+
+  url = 'http://search.chiasenhac.com/search.php?s=' + urllib.quote_plus(query) + '&page=' + str(page) + '&cat=' + cat
   content = make_request(url)
   soup = BeautifulSoup(str(content), convertEntities=BeautifulSoup.HTML_ENTITIES)
-  items = soup.findAll('div',{'class' : 'tenbh'})
-  for item in items:
-    a = item.find('a')
-    p = item.findAll('p')[1]
-    if a is not None:
-      href = a.get('href')
-      if 'chiasenhac.com' not in href:
-        href = 'http://chiasenhac.com/' + href   
-      add_link('', a.text + '-' + p.text, 0, href, get_thumbnail_url(), '')
-      
+  items = soup.find('table',{'class':'tbtable'}).findAll('tr')
+  for ii in items:
+    item = ii.find('div',{'class':'tenbh'})
+    if item is not None:
+      a = item.find('a')
+      p = item.findAll('p')[1]
+      if a is not None:
+        href = a.get('href')
+        if 'chiasenhac.com' not in href:
+          href = 'http://chiasenhac.com/' + href   
+        quality = ii.find('span',{'class':'gen'}).find('span', {'style':['color: red','color: orange','color: darkblue','color: darkgreen']})
+        if quality is not None:
+          quality = '[' + quality.text + '] '
+        else:
+          quality = '';
+        add_link('', quality + a.text + '-' + p.text, 0, href, get_thumbnail_url(), '')
+
+  add_dir(u'Trang tiếp >>', '', mode, get_thumbnail_url(), query, type, page + 1)
   return
 
-def search_albums(url):
-  #http://search.chiasenhac.com/search.php?s=bai+hat&mode=album
-  query = common.getUserInput('Search', '')
-  if query is None:
-    return
-  url = 'http://search.chiasenhac.com/search.php?mode=album&s=' + urllib.quote_plus(query)
+def search_albums(start, query, page):
+  #http://search.chiasenhac.com/search.php?s=bai+hat&mode=album&page=2&start=221
+  if query == '':
+    query = common.getUserInput('Search', '')
+    if query is None:
+      return
+  if page == 0:
+    page = 1
+  url = 'http://search.chiasenhac.com/search.php?mode=album&s=' + urllib.quote_plus(query) + '&page=' + str(page) + '&start=' + start
   content = make_request(url)
   soup = BeautifulSoup(str(content), convertEntities=BeautifulSoup.HTML_ENTITIES)
   thumbs = soup.find('table',{'class' : 'tbtable'}).findAll('span',{'class' : 'genmed'})
@@ -263,6 +328,12 @@ def search_albums(url):
         thumb = albums_thumbs[link]
       
       add_dir(title, link, 102, thumb, query, type, 0)
+  xt = soup.find('a',{'class' : 'xt'})
+  if xt is not None:
+    href = xt.get('href')
+    parts = href.split('=')
+    start = parts[len(parts) - 1]
+    add_dir(u'Trang tiếp >>', start, 11, get_thumbnail_url(), query, type, page + 1)
   return
 
 def resolve_url(url):
@@ -331,12 +402,26 @@ def extract_link_with_quality(video_quality, mp3_quality, url):
     quality_availables += item.get('src') + ','
 
   if video_quality not in quality_availables:
-    video_q = '128'
+    video_quality = '720p'
+    video_q = 'm4a'
+    if video_quality not in quality_availables:
+      video_quality = '480p'
+      video_q = '320'
+      if video_quality not in quality_availables:
+        video_q = '128'
+
+  mp3_quality_save = mp3_quality
 
   if mp3_quality not in quality_availables:
-    mp3_q = '128'
+    mp3_quality = 'm4a'
+    mp3_q = 'm4a'
+    if mp3_quality not in quality_availables:
+      mp3_quality = '320k'
+      mp3_q = '320'
+      if mp3_quality not in quality_availables:
+        mp3_q = '128'
 
-  if (mp3_quality == 'flac') and ('m4a' in quality_availables):
+  if (mp3_quality_save == 'flac') and ('m4a' in quality_availables):
     mp3_q = 'flac'
 
   parts = media_link.split('/')
@@ -402,7 +487,7 @@ params=get_params()
 url=''
 name=None
 mode=None
-query=None
+query=''
 type='f'
 page=0
 
@@ -449,22 +534,27 @@ elif mode==4:
     pass
 elif mode==10:
   try:
-    search(url)
+    search(query,page,10,'music')
+  except:
+    pass
+elif mode==12:
+  try:
+    search(query,page,12,'video')
   except:
     pass
 elif mode==11:
   try:
-    search_albums(url)
+    search_albums(url,query,page)
   except:
     pass
 elif mode==100:
   try:
-    get_chiasenhac(url)
+    get_chiasenhac(url,page)
   except:
     pass
 elif mode==101:
   try:
-    get_chiasenhac_album(url)
+    get_chiasenhac_album(url, page)
   except:
     pass
 elif mode==102:
