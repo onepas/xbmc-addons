@@ -94,6 +94,17 @@ def get_chiasenhac(url = None, page = 0):
             quality = '[' + quality.text + '] '
           else:
             quality = '';
+          try:
+            t1 = table.find('div', {'class':'gensmall'}).text
+            t2 = t1 + item.text
+            t3 = table.find('div', {'class':'musicinfo'}).text
+          except:
+            t3 = ''
+            t2 = ''
+            pass
+
+          text = text + ' - [COLOR FF0084EA]' + t3.replace(t2,'') + '[/COLOR]'
+          
           add_link('', quality + text, 0, href, get_thumbnail_url(), '')
     return   
 
@@ -104,7 +115,11 @@ def get_chiasenhac(url = None, page = 0):
     for table in tables:
       item = table.find('div', {'class':'info'}).find('a')
       href = item.get('href')
-      text = item.get('title')
+      text = item.text
+      text_casi = table.find('div', {'class':'info'}).find('p').text
+
+      text = text + ' - [COLOR FF0084EA]' + text_casi + '[/COLOR]'
+
       if 'playlist.chiasenhac.com' not in href:
         href = 'http://playlist.chiasenhac.com/' + href
       img = table.find('div', {'class':'gensmall'}).find('a').find('img')
@@ -131,7 +146,11 @@ def get_chiasenhac(url = None, page = 0):
       for table in tables:
         item = table.find('div', {'class':'text2'}).find('a')
         href = item.get('href')
-        text = item.get('title')
+        text = item.text
+        text_casi = table.find('div', {'class':'text2'}).find('p').text
+
+        text = text + ' - [COLOR FF0084EA]' + text_casi + '[/COLOR]'
+
         if 'playlist.chiasenhac.com' not in href:
           href = 'http://playlist.chiasenhac.com/' + href
         quality = table.find('div',{'class':'texte2'}).find('span', {'style':['color: red','color: orange','color: darkblue','color: darkgreen']})
@@ -154,6 +173,9 @@ def get_chiasenhac(url = None, page = 0):
             quality = '[' + quality.text + '] '
           else:
             quality = '';
+          tt =text.split('-')
+          if len(tt) == 2:
+            text = tt[0] + ' - [COLOR FF0084EA]' + tt[1] + '[/COLOR]'
           add_link('', quality + text, 0, href, get_thumbnail_url(), '')
     
     url_parts = url.split('/')
@@ -216,7 +238,11 @@ def get_chiasenhac_album_songs(url = None):
     a = album.findAll('a')
     if (len(a) == 3):
       href = 'http://chiasenhac.com/' + a[1].get('href')
-      text = album.text;
+      text = album.text
+      tt =text.split('-')
+      if len(tt) == 2:
+        text = tt[0] + ' - [COLOR FF0084EA]' + tt[1] + '[/COLOR]'
+
       add_link('', text, 0, href, get_thumbnail_url(), '')
       
   return 
@@ -231,9 +257,10 @@ def get_categories():
   add_dir('Nhạc Hoa','mp3/chinese/', 1,  get_thumbnail_url(), '', type, 0)
   add_dir('Nhạc Hàn','mp3/korea/', 1,  get_thumbnail_url(), '', type, 0)
   add_dir('Nước Khác','mp3/other/', 1,  get_thumbnail_url(), '', type, 0)
-  add_dir('Tìm kiếm Nhạc','', 10, get_thumbnail_url(), '', type, 0)
+  add_dir('Tìm kiếm theo tên bài hát','', 10, get_thumbnail_url(), '', type, 0)
+  add_dir('Tìm kiếm theo tên ca sỹ/ban nhạc','', 13, get_thumbnail_url(), '', type, 0)
   add_dir('Tìm kiếm Video','', 12, get_thumbnail_url(), '', type, 0)
-  add_dir('Tìm kiếm Album','', 11, get_thumbnail_url(), '', type, 0)
+  add_dir('Tìm kiếm theo tên album','', 11, get_thumbnail_url(), '', type, 0)
   add_dir('Add-on settings', '', 99, get_thumbnail_url(), '', type, 0)
     
 
@@ -260,9 +287,10 @@ def get_sub_categories(url, mode):
           add_dir('Albums: ' + item.a.text, 'http://chiasenhac.com/' + href + 'album.html', 101, get_thumbnail_url(), query, type, 0)
       except:
         pass
-  add_dir('Tìm kiếm Nhạc','', 10, get_thumbnail_url(), '', type, 0)
+  add_dir('Tìm kiếm theo tên bài hát','', 10, get_thumbnail_url(), '', type, 0)
+  add_dir('Tìm kiếm theo tên ca sỹ/ban nhạc','', 13, get_thumbnail_url(), '', type, 0)
   add_dir('Tìm kiếm Video','', 12, get_thumbnail_url(), '', type, 0)
-  add_dir('Tìm kiếm Album','', 11, get_thumbnail_url(), '', type, 0)
+  add_dir('Tìm kiếm theo tên album','', 11, get_thumbnail_url(), '', type, 0)
   return
  
 def search(query = '', page = 0, mode = 10, cat = 'music'):
@@ -273,7 +301,10 @@ def search(query = '', page = 0, mode = 10, cat = 'music'):
   if page == 0:
     page = 1
 
-  url = 'http://search.chiasenhac.com/search.php?s=' + urllib.quote_plus(query) + '&page=' + str(page) + '&cat=' + cat
+  url = 'http://search.chiasenhac.com/search.php?s=' + urllib.quote(query) + '&page=' + str(page) + '&cat=' + cat
+  if 'artist' in cat:
+    url = 'http://search.chiasenhac.com/search.php?s=' + urllib.quote(query) + '&page=' + str(page) + '&cat=music&mode=' + cat
+  
   content = make_request(url)
   soup = BeautifulSoup(str(content), convertEntities=BeautifulSoup.HTML_ENTITIES)
   items = soup.find('table',{'class':'tbtable'}).findAll('tr')
@@ -291,7 +322,7 @@ def search(query = '', page = 0, mode = 10, cat = 'music'):
           quality = '[' + quality.text + '] '
         else:
           quality = '';
-        add_link('', quality + a.text + '-' + p.text, 0, href, get_thumbnail_url(), '')
+        add_link('', quality + a.text + ' - [COLOR FF0084EA]' + p.text + '[/COLOR]', 0, href, get_thumbnail_url(), '')
 
   add_dir(u'Trang tiếp >>', '', mode, get_thumbnail_url(), query, type, page + 1)
   return
@@ -535,6 +566,11 @@ elif mode==4:
 elif mode==10:
   try:
     search(query,page,10,'music')
+  except:
+    pass
+elif mode==13:
+  try:
+    search(query,page,13,'artist')
   except:
     pass
 elif mode==12:

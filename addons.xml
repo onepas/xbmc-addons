@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <addons>
-    <addon id="plugin.audio.vietmusic" name="VietMusic" version="1.6" provider-name="VietMusic">
+    <addon id="plugin.audio.vietmusic" name="VietMusic" version="1.7" provider-name="VietMusic">
         <requires>
             <import addon="xbmc.python" version="2.1.0" />
             <import addon="script.module.simple.downloader" version="1.9.4" />
