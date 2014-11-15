@@ -18,7 +18,7 @@ home = __settings__.getAddonInfo('path')
 icon = xbmc.translatePath( os.path.join( home, 'icon.png' ) )
 thumbnails = xbmc.translatePath( os.path.join( home, 'thumbnails\\' ) )
 
- 
+
 __video_quality = __settings__.getSetting('video_quality') #values="240p|360p|480p|720p|1080p"
 __mp3_quality = __settings__.getSetting('mp3_quality') #values="32K|128K|320K|500K|Lossless"
 
@@ -257,10 +257,10 @@ def get_categories():
   add_dir('Nhạc Hoa','mp3/chinese/', 1,  get_thumbnail_url(), '', type, 0)
   add_dir('Nhạc Hàn','mp3/korea/', 1,  get_thumbnail_url(), '', type, 0)
   add_dir('Nước Khác','mp3/other/', 1,  get_thumbnail_url(), '', type, 0)
-  add_dir('Tìm kiếm theo tên bài hát','', 10, get_thumbnail_url(), '', type, 0)
-  add_dir('Tìm kiếm theo tên ca sỹ/ban nhạc','', 13, get_thumbnail_url(), '', type, 0)
-  add_dir('Tìm kiếm Video','', 12, get_thumbnail_url(), '', type, 0)
-  add_dir('Tìm kiếm theo tên album','', 11, get_thumbnail_url(), '', type, 0)
+  add_dir('Tìm kiếm theo tên bài hát','', 210, get_thumbnail_url(), '', type, 0)
+  add_dir('Tìm kiếm theo tên ca sỹ/ban nhạc','', 213, get_thumbnail_url(), '', type, 0)
+  add_dir('Tìm kiếm Video','', 212, get_thumbnail_url(), '', type, 0)
+  add_dir('Tìm kiếm theo tên album','', 211, get_thumbnail_url(), '', type, 0)
   add_dir('Add-on settings', '', 99, get_thumbnail_url(), '', type, 0)
     
 
@@ -287,17 +287,37 @@ def get_sub_categories(url, mode):
           add_dir('Albums: ' + item.a.text, 'http://chiasenhac.com/' + href + 'album.html', 101, get_thumbnail_url(), query, type, 0)
       except:
         pass
-  add_dir('Tìm kiếm theo tên bài hát','', 10, get_thumbnail_url(), '', type, 0)
-  add_dir('Tìm kiếm theo tên ca sỹ/ban nhạc','', 13, get_thumbnail_url(), '', type, 0)
-  add_dir('Tìm kiếm Video','', 12, get_thumbnail_url(), '', type, 0)
-  add_dir('Tìm kiếm theo tên album','', 11, get_thumbnail_url(), '', type, 0)
+  add_dir('Tìm kiếm theo tên bài hát','', 210, get_thumbnail_url(), '', type, 0)
+  add_dir('Tìm kiếm theo tên ca sỹ/ban nhạc','', 213, get_thumbnail_url(), '', type, 0)
+  add_dir('Tìm kiếm Video','', 212, get_thumbnail_url(), '', type, 0)
+  add_dir('Tìm kiếm theo tên album','', 211, get_thumbnail_url(), '', type, 0)
   return
  
+def show_search_recent(mode):
+  add_dir('Tìm kiếm','', mode - 200, get_thumbnail_url(), '', type, 0)
+  saved_search = __settings__.getSetting('saved_search_' + str(mode - 200))
+  if saved_search is not None:
+    items=saved_search.split('~')
+    for i in range(len(items)):
+      if len(items[i]) > 0:
+        add_dir(items[i],'', mode - 200, get_thumbnail_url(), items[i], type, 0)
+
+
 def search(query = '', page = 0, mode = 10, cat = 'music'):
   if len(query)==0:
     query = common.getUserInput('Search', '')
     if query is None:
       return
+    saved = __settings__.getSetting('saved_search_' + str(mode))
+    if saved is None:
+      saved = query + '~'
+      __settings__.setSetting('saved_search_' + str(mode),saved)
+    else:
+      if query + '~' in saved:
+        saved = saved.replace(query + '~','')
+      saved = query + '~' + saved
+      __settings__.setSetting('saved_search_' + str(mode),saved)
+
   if page == 0:
     page = 1
 
@@ -329,10 +349,20 @@ def search(query = '', page = 0, mode = 10, cat = 'music'):
 
 def search_albums(start, query, page):
   #http://search.chiasenhac.com/search.php?s=bai+hat&mode=album&page=2&start=221
+  mode = 11
   if len(query) == 0:
     query = common.getUserInput('Search', '')
     if query is None:
       return
+    saved = __settings__.getSetting('saved_search_' + str(mode))
+    if saved is None:
+      saved = query + '~'
+      __settings__.setSetting('saved_search_' + str(mode),saved)
+    else:
+      if query + '~' in saved:
+        saved = saved.replace(query + '~','')
+      saved = query + '~' + saved
+      __settings__.setSetting('saved_search_' + str(mode),saved)
   if page == 0:
     page = 1
   url = 'http://search.chiasenhac.com/search.php?mode=album&s=' + urllib.quote_plus(query) + '&page=' + str(page) + '&start=' + start
@@ -364,7 +394,7 @@ def search_albums(start, query, page):
     href = xt.get('href')
     parts = href.split('=')
     start = parts[len(parts) - 1]
-    add_dir(u'Trang tiếp >>', start, 11, get_thumbnail_url(), query, type, page + 1)
+    add_dir(u'Trang tiếp >>', start, mode, get_thumbnail_url(), query, type, page + 1)
   return
 
 def resolve_url(url):
@@ -563,19 +593,39 @@ elif mode==4:
     resolve_url(url)
   except:
     pass
+elif mode==210:
+  try:
+    show_search_recent(mode)
+  except:
+    pass
 elif mode==10:
   try:
-    search(query,page,10,'music')
+    search(query,page,mode,'music')
+  except:
+    pass
+elif mode==213:
+  try:
+    show_search_recent(mode)
   except:
     pass
 elif mode==13:
   try:
-    search(query,page,13,'artist')
+    search(query,page,mode,'artist')
+  except:
+    pass
+elif mode==212:
+  try:
+    show_search_recent(mode)
   except:
     pass
 elif mode==12:
   try:
-    search(query,page,12,'video')
+    search(query,page,mode,'video')
+  except:
+    pass
+elif mode==211:
+  try:
+    show_search_recent(mode)
   except:
     pass
 elif mode==11:
