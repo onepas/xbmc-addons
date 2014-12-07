@@ -1,0 +1,7 @@
+git pull
+git add -A
+git commit -m "change me"
+git push origin master
+
+
+openssl md5 addons.xml > addons.xml.md5

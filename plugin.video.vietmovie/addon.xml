@@ -2,7 +2,7 @@
 <addon id="plugin.video.vietmovie"
        name="VietMovie"
        version="1.0"
-       provider-name="VietMovie">
+       provider-name="VietMusic">
 	<requires>
 		<import addon="xbmc.python" version="2.1.0" />
 		<import addon="script.module.simple.downloader" version="1.9.4" />
