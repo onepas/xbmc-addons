@@ -20,9 +20,9 @@ along with this program. If not, see <http://www.gnu.org/licenses/
 import urllib,urllib2,re,os
 import xbmc,xbmcplugin,xbmcgui,xbmcaddon
 
-addon      = xbmcaddon.Addon('plugin.video.fptplay')
+addon      = xbmcaddon.Addon('plugin.video.vietplay')
 profile    = xbmc.translatePath(addon.getAddonInfo('profile'))
-mysettings = xbmcaddon.Addon(id='plugin.video.fptplay')
+mysettings = xbmcaddon.Addon(id='plugin.video.vietplay')
 home       = mysettings.getAddonInfo('path')
 fanart     = xbmc.translatePath(os.path.join(home, 'fanart.jpg'))
 icon       = xbmc.translatePath(os.path.join(home, 'icon.png'))
