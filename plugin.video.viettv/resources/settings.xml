@@ -1,0 +1,5 @@
+<settings>
+	<category label="Quality Settings">
+	    <setting label="Bitrate" type="labelenum" id="video_quality" default="1000" values="500|1000|2500"/>
+	</category>
+</settings>

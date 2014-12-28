@@ -13,6 +13,7 @@
             <language>en</language>
             <summary lang="en">VietMusic online</summary>
             <description lang="en">Add-on play Vietnamese Music online</description>
+            <disclaimer lang="en">[COLOR red]I am not responsible for the contents of these streams, which are pulled from online provider(s). The streams do not represent my views or opinions in any way.[/COLOR]</disclaimer>
         </extension>
     </addon>
     <addon id="plugin.video.vietmovie" name="VietMovie" version="1.0" provider-name="VietMusic">
@@ -28,6 +29,7 @@
             <language>en</language>
             <summary lang="en">VietMovie online</summary>
             <description lang="en">Add-on play Vietnamese Movie online</description>
+            <disclaimer lang="en">[COLOR red]I am not responsible for the contents of these streams, which are pulled from online provider(s). The streams do not represent my views or opinions in any way.[/COLOR]</disclaimer>
         </extension>
     </addon>
     <addon id="plugin.video.vietplay" name="VietPlay" version="1.0" provider-name="VietMusic">
@@ -40,9 +42,39 @@
             <provides>video</provides>
         </extension>
         <extension point="xbmc.addon.metadata">
-            <summary>[COLOR cyan]http://fptplay.net[/COLOR]</summary>
-            <description>[COLOR yellow]Watch free TV and video clips at http://fptplay.net[/COLOR]</description>
-            <disclaimer lang="en">[COLOR lime][B]a[/COLOR][COLOR chocolate]Rookie[/B][/COLOR] [COLOR red]I am not responsible for the contents of these streams, which are pulled from online provider(s). The streams do not represent my views or opinions in any way.[/COLOR]</disclaimer>
+            <summary>VietPlay Online</summary>
+            <description></description>
+            <disclaimer lang="en">[COLOR red]I am not responsible for the contents of these streams, which are pulled from online provider(s). The streams do not represent my views or opinions in any way.[/COLOR]</disclaimer>
+            <platform>all</platform>
+        </extension>
+    </addon>
+    <addon id="script.video.F4mProxy" name="F4mProxy" version="2.1.7" provider-name="Shani">
+        <requires>
+            <import addon="xbmc.python" version="2.1.0" />
+        </requires>
+        <extension point="xbmc.python.module" library="lib" />
+        <extension point="xbmc.python.pluginsource" library="addon.py">
+            <provides>executable</provides>
+        </extension>
+
+        <extension point="xbmc.addon.metadata">
+            <platform>all</platform>
+            <summary lang="en">Proxy for f4m</summary>
+            <description lang="en">Use this addon to play F4m v1 and v2 streams</description>
+        </extension>
+    </addon>
+    <addon id="plugin.video.viettv" version="1.0.0" name="VietTV" provider-name="VietMusic">
+        <requires>
+            <import addon="xbmc.python" version="2.1.0" />
+            <import addon="script.video.F4mProxy" version="2.1.7" />
+        </requires>
+        <extension point="xbmc.python.pluginsource" library="default.py">
+            <provides>video</provides>
+        </extension>
+        <extension point="xbmc.addon.metadata">
+            <summary>VietTV Online</summary>
+            <description></description>
+            <disclaimer lang="en">[COLOR red]I am not responsible for the contents of these streams, which are pulled from online provider(s). The streams do not represent my views or opinions in any way.[/COLOR]</disclaimer>
             <platform>all</platform>
         </extension>
     </addon>
