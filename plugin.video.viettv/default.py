@@ -12,6 +12,7 @@ from BeautifulSoup import BeautifulSoup
 
 __settings__ = xbmcaddon.Addon(id='plugin.video.viettv')
 __video_quality = __settings__.getSetting('video_quality') #values="500|1000|2500"
+__video_streaming = __settings__.getSetting('video_streaming') #values="f4m|m3u8"
 
 __thumbnails = []
 
@@ -138,9 +139,9 @@ if mode ==None:
     for name,url,thumbnail in match:
         file_link = 'http://fptplay.net' + url
         imgurl = thumbnail
-        maxbitrate = 0
+        maxbitrate = 2500
         proxy = ''
-        usechunks = False
+        usechunks = True
         title = name.replace('&#39;','\'')
         liz=xbmcgui.ListItem(title,iconImage=imgurl, thumbnailImage=imgurl)
         liz.setInfo( type="Video", infoLabels={ "Title": title} )
@@ -161,13 +162,41 @@ elif mode == "play":
     link=response.read()
     response.close()
     data = json.loads(link)
+    
     streamUrl = data['hds_stream_' + __video_quality]
+    
     if '.m3u8' in streamUrl:
         listitem = xbmcgui.ListItem( label = str(name), iconImage = "DefaultVideo.png", thumbnailImage = xbmc.getInfoImage( "ListItem.Thumb" ), path=streamUrl )
         xbmc.Player().play( streamUrl,listitem)
     else:
-        streamUrl = streamUrl + '|Referer=http://play.fpt.vn/static/mediaplayer/FPlayer.swf'
-        playF4mLink(streamUrl,name, proxy_string, proxy_use_chunks,auth_string,streamtype,setResolved)
+        if __video_streaming == 'm3u8':
+            streamUrl = data['hls_stream']
+            streamUrl = streamUrl.replace('_1000','_' + __video_quality)
+            #kiem tra xem co bitrate nay khong?
+            ok = False
+            try:
+                pDialog = xbmcgui.DialogProgressBG()
+                pDialog.create('', 'Detecting bitrate...')
+                req = urllib2.Request(streamUrl)
+                req.add_header('User-Agent', 'Mozilla/5.0 (Windows; U; Windows NT 5.1; en-GB; rv:1.9.0.4) Gecko/2008092417 Firefox/4.0.4')
+                response = urllib2.urlopen(req, timeout=5)
+                link=response.read()
+                response.close()
+                pDialog.close()
+                pDialog.update(100, message='Bitrate is ' + __video_quality)
+                ok = True
+            except:
+                pDialog.update(100, message='Bitrate is 1000')
+                pDialog.close()
+                pass
+            if not ok:
+                streamUrl = data['hls_stream']
+
+            listitem = xbmcgui.ListItem( label = str(name), iconImage = "DefaultVideo.png", thumbnailImage = xbmc.getInfoImage( "ListItem.Thumb" ), path=streamUrl )
+            xbmc.Player().play( streamUrl,listitem)
+        else:
+            streamUrl = streamUrl + '|Referer=http://play.fpt.vn/static/mediaplayer/FPlayer.swf'
+            playF4mLink(streamUrl,name, proxy_string, proxy_use_chunks,auth_string,streamtype,setResolved)
     
 elif mode == "settings":
     __settings__.openSettings()

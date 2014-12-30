@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<addon id="plugin.video.viettv" version="1.0.0" name="VietTV" provider-name="VietMusic">
+<addon id="plugin.video.viettv" version="1.0.1" name="VietTV" provider-name="VietMusic">
     <requires>
         <import addon="xbmc.python" version="2.1.0"/>
         <import addon="script.video.F4mProxy" version="2.1.7"/>
