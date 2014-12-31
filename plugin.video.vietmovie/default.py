@@ -152,7 +152,7 @@ def add_link(date, name, duration, href, thumb, desc):
 def add_dir(name,url,mode,iconimage,query='',type='f',page=0):
   url_parts = url.split('/')
   if mode == 10:
-    url_parts[len(url_parts) -1] = 'xem-' + url_parts[len(url_parts) -1]
+    url_parts[len(url_parts) -1] = '' + url_parts[len(url_parts) -1]
 
   u=sys.argv[0]+"?url="+urllib.quote_plus('/'.join(url_parts))+"&mode="+str(mode)+"&query="+str(query)+"&type="+str(type)+"&page="+str(page)
   ok=True
