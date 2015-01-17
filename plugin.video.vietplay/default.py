@@ -73,7 +73,7 @@ def episodes(url):
 	link=response.read()
 	response.close()
 	title=re.compile('<title>([^\']+)</title>').findall(link)		
-	match=re.compile("<li class=\"(.*?)\" data=\"(.*?)\" href=\"\/Video([^\"]*)\"><a>(.*?)<\/a><\/li>", re.MULTILINE).findall(link)
+	match=re.compile("<li class=\"(.*?)\" data=\"(.*?)\" href=\"\/Video([^\"]*)\" onclick=\".*?\"><a>(.*?)<\/a><\/li>", re.MULTILINE).findall(link)
 	for cls,data,url,name in match:
 		addDir(('%s   -   %s' % ('Tập ' + name,title[-1])),('%s%s' % (fptplay, data)),5,logos + 'fptplay.png')
 						
