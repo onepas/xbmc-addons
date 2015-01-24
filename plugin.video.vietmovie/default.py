@@ -41,12 +41,15 @@ def _makeCookieHeader(cookie):
       cookieHeader += "%s=%s; " % (value.key, value.value)
   return cookieHeader
 
-def make_request(url, headers=None):
+def make_request(url, params = None,  headers=None):
   if headers is None:
     headers = {'User-agent' : 'Mozilla/5.0 (Windows NT 6.1; WOW64; rv:15.0) Gecko/20100101 Firefox/15.0.1',
                'Referer' : 'http://www.google.com'}
   try:
-    req = urllib2.Request(url,headers=headers)
+    data = None
+    if params is not None:
+      data = urllib.urlencode(params)
+    req = urllib2.Request(url,data,headers)
     f = urllib2.urlopen(req)
     body=f.read()
     return body
@@ -76,6 +79,38 @@ def build_menu():
             add_dir(title, url, 3, get_thumbnail_url())
           else:
             add_dir(title, url, 1, get_thumbnail_url())
+  add_dir('Tìm kiếm','', 100, get_thumbnail_url())
+
+def search():
+  query = common.getUserInput('Tìm kiếm Phim', '')
+  if query is None:
+    return
+  content = make_request('http://megabox.vn/home/search/index',{'key':query})
+  soup = BeautifulSoup(str(content), convertEntities=BeautifulSoup.HTML_ENTITIES)
+  items = soup.findAll('div',{'class' : 'picAll'})
+  for item in items:
+    #espt = item.find('div',{'class':['espT', 'espT MHD']})
+    espt = item.find('div',{'class':'espT'})
+    mode = 2 #Phim bo
+    if espt is None:
+      mode = 10 #Phim le
+      espt = item.find('div',{'class':'espT MHD'})
+    if espt is not None:
+      espt = '['+ espt.text.replace(' ','') + ']-'
+    else:
+      espt = ''
+    if len(espt) > 0:
+      title = item.h4.text
+      href = item.a.get('href')
+      itemStr = str(item)
+      thumbIndex1 = itemStr.find('data-original')
+      lenPrefix = len('data-original="')
+      thumbIndex2 = itemStr.find('"',thumbIndex1+lenPrefix)
+      thumb = itemStr[thumbIndex1+lenPrefix:thumbIndex2]
+      d1 = itemStr.find('<p>')
+      d2 = itemStr.find('</p>',d1)
+      plot = itemStr[d1+3:d2]
+      add_dir(espt + title, href, mode, thumb + '?f.png',plot=plot)
 
 def list_movies(url):
   content = make_request(url)
@@ -99,8 +134,12 @@ def list_movies(url):
       title = item.find('div',{'class':'loadtxtP'}).a.get('title')
     href = item.a.get('href')
     thumb = item.find('img').get('src')
+    itemStr = str(item)
+    d1 = itemStr.find('<p>')
+    d2 = itemStr.find('</p>',d1)
+    plot = itemStr[d1+3:d2]
     if '(0)' not in title:
-      add_dir(espt + title, href, mode, thumb + '?f.png')
+      add_dir(espt + title, href, mode, thumb + '?f.png',plot=plot)
     
 #dung cho link the-loai.html
 def list_movies_category(url):
@@ -136,6 +175,21 @@ def play_movie(url,p=True):
       url = 'http://' + m[0] + 'index.m3u8'
       listitem = xbmcgui.ListItem(path=url)
       xbmcplugin.setResolvedUrl(int(sys.argv[1]), True, listitem)
+    else:
+      bannerSlide = soup.find('div',{'class' : 'bannerSlide'})
+      if bannerSlide is not None:
+        url = bannerSlide.find('a').get('href')
+        content = make_request(url)
+        m = re.findall('file:\W+http://(.*?)index.m3u8',content,re.DOTALL)
+        if (len(m) > 0):
+          url = 'http://' + m[0] + 'index.m3u8'
+          listitem = xbmcgui.ListItem(path=url)
+          xbmcplugin.setResolvedUrl(int(sys.argv[1]), True, listitem)
+        else:
+          xbmcgui.Dialog().ok("Oops!","Không tìm thấy phim.","Link giả?")
+      else:
+        xbmcgui.Dialog().ok("Oops!","Không tìm thấy phim.","Link giả?")
+
       
 def add_link(date, name, duration, href, thumb, desc):
 
@@ -149,15 +203,11 @@ def add_link(date, name, duration, href, thumb, desc):
     ok=xbmcplugin.addDirectoryItem(handle=int(sys.argv[1]),url=u,listitem=liz)
 
 
-def add_dir(name,url,mode,iconimage,query='',type='f',page=0):
-  url_parts = url.split('/')
-  if mode == 10:
-    url_parts[len(url_parts) -1] = '' + url_parts[len(url_parts) -1]
-
-  u=sys.argv[0]+"?url="+urllib.quote_plus('/'.join(url_parts))+"&mode="+str(mode)+"&query="+str(query)+"&type="+str(type)+"&page="+str(page)
+def add_dir(name,url,mode,iconimage,query='',type='f',page=0,plot=''):
+  u=sys.argv[0]+"?url="+urllib.quote_plus(url)+"&mode="+str(mode)+"&query="+str(query)+"&type="+str(type)+"&page="+str(page)
   ok=True
   liz=xbmcgui.ListItem(name, iconImage="DefaultFolder.png", thumbnailImage=iconimage)
-  liz.setInfo( type="Video", infoLabels={ "Title": name } )
+  liz.setInfo( type="Video", infoLabels={ "Title": name, "plot":plot } )
   isFolder = True;
   if mode == 10:
     liz.setProperty('IsPlayable', 'true')
@@ -238,5 +288,7 @@ elif mode == 3:
   list_movies_category(url)
 elif mode == 10:
   play_movie(url)
+elif mode == 100:
+  search()
 
 xbmcplugin.endOfDirectory(int(sys.argv[1]))
