@@ -12,7 +12,7 @@ import time
 
 from BeautifulSoup import BeautifulSoup
 
-__settings__ = xbmcaddon.Addon(id='plugin.audio.vietmusic')
+__settings__ = xbmcaddon.Addon(id='plugin.video.vietmovie')
 __language__ = __settings__.getLocalizedString
 home = __settings__.getAddonInfo('path')
 icon = xbmc.translatePath( os.path.join( home, 'icon.png' ) )
