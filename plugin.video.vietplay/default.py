@@ -16,9 +16,12 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License      
 along with this program. If not, see <http://www.gnu.org/licenses/  
 '''                                                                           
-
+import CommonFunctions as common
 import urllib,urllib2,re,os
+import random
+import time
 import xbmc,xbmcplugin,xbmcgui,xbmcaddon
+from BeautifulSoup import BeautifulSoup
 
 addon      = xbmcaddon.Addon('plugin.video.vietplay')
 profile    = xbmc.translatePath(addon.getAddonInfo('profile'))
@@ -28,6 +31,49 @@ fanart     = xbmc.translatePath(os.path.join(home, 'fanart.jpg'))
 icon       = xbmc.translatePath(os.path.join(home, 'icon.png'))
 logos      = xbmc.translatePath(os.path.join(home, 'logos\\'))
 fptplay    = 'http://fptplay.net/'
+
+__thumbnails = []
+
+def _makeCookieHeader(cookie):
+	cookieHeader = ""
+	for value in cookie.values():
+		cookieHeader += "%s=%s; " % (value.key, value.value)
+	return cookieHeader
+
+def make_request(url, params = None,  headers=None):
+	if headers is None:
+		headers = {'User-agent' : 'Mozilla/5.0 (Windows NT 6.1; WOW64; rv:15.0) Gecko/20100101 Firefox/15.0.1',
+	           'Referer' : 'http://www.google.com'}
+	try:
+		data = None
+		if params is not None:
+		  	data = urllib.urlencode(params)
+		req = urllib2.Request(url,data,headers)
+		f = urllib2.urlopen(req)
+		body=f.read()
+		return body
+	except urllib2.URLError, e:
+		print 'We failed to open "%s".' % url
+		if hasattr(e, 'reason'):
+		    print 'We failed to reach a server.'
+		    print 'Reason: ', e.reason
+		if hasattr(e, 'code'):
+		    print 'We failed with error code - %s.' % e.code
+
+def get_thumbnail_url():
+	global __thumbnails
+	url = ''
+	try:
+		if len(__thumbnails) == 0:
+			content = make_request('https://raw.github.com/onepas/xbmc-addons/master/thumbnails/thumbnails.xml')
+			soup = BeautifulSoup(str(content), convertEntities=BeautifulSoup.HTML_ENTITIES)
+			__thumbnails = soup.findAll('thumbnail')
+
+		url = random.choice(__thumbnails).text 
+	except:
+		pass
+
+	return url
 
 def home():
 	req = urllib2.Request(fptplay)
@@ -41,7 +87,8 @@ def home():
 			print url
 			#addDir('[COLOR yellow]' + name + '[/COLOR]',fptplay + url,3,logos + 'fptplay.png')
 		else:
-			addDir( name ,fptplay + url,1,icon)			
+			addDir( name , fptplay + url ,1, get_thumbnail_url())	
+	addDir('Tìm kiếm',fptplay, 100, get_thumbnail_url())		
 								
 def plist(url):	
 	req = urllib2.Request(url)
@@ -51,7 +98,7 @@ def plist(url):
 	response.close()
 	match=re.compile("<div class=\"col\">\s*<a href=\"([^\"]+)\">\s*<img src=\"([^\"]*)\" alt=\"(.+?)\"").findall(link)
 	for url,thumbnail,name in match:	
-		addDir(name,fptplay + url,4,thumbnail)
+		addDir(name.replace('&#39;',"'"),fptplay + url,4,thumbnail)
 	match=re.compile("<li><a href=\"(.+?)\">(\d+)<\/a><\/li>").findall(link)
 	for url,name in match:	
 		addDir('[COLOR lime]Trang ' + name + '[/COLOR]',fptplay + url,2,logos + 'fptplay.png')
@@ -64,7 +111,7 @@ def dirs(url):
 	response.close()
 	match=re.compile("<h3><a href=\"(.+?)\">(.+?)<\/a><\/h3>").findall(link)
 	for url,name in match:	
-		addDir(name,fptplay + url,2,icon)
+		addDir(name.replace('&#39;',"'"),fptplay + url,2,  get_thumbnail_url())
 
 def episodes(url):
 	req = urllib2.Request(url)
@@ -75,7 +122,7 @@ def episodes(url):
 	title=re.compile('<title>([^\']+)</title>').findall(link)		
 	match=re.compile("<li class=\"(.*?)\" data=\"(.*?)\" href=\"\/Video([^\"]*)\" onclick=\".*?\"><a>(.*?)<\/a><\/li>", re.MULTILINE).findall(link)
 	for cls,data,url,name in match:
-		addDir(('%s   -   %s' % ('Tập ' + name,title[-1])),('%s%s' % (fptplay, data)),5,logos + 'fptplay.png')
+		addDir(('%s   -   %s' % ('Tập ' + name,title[-1].replace('&#39;',"'"))),('%s%s' % (fptplay, data)),5, get_thumbnail_url())
 						
 def index(url):
 	req = urllib2.Request(url)
@@ -109,6 +156,13 @@ def vlinks(url,name):
 	else:
 		listitem = xbmcgui.ListItem(path=link)
       	xbmcplugin.setResolvedUrl(int(sys.argv[1]), True, listitem)
+
+def search():
+	query = common.getUserInput('Tìm kiếm Phim', '')
+  	if query is None:
+		return
+	url = fptplay + '/Search/' + urllib.quote_plus(query)
+	plist(url)
 
 def get_params():
     param=[]
@@ -184,5 +238,8 @@ elif mode==4:
 		
 elif mode==5:
    	vlinks(url,name)
+
+elif mode==100:
+   	search()
 			
 xbmcplugin.endOfDirectory(int(sys.argv[1]))
