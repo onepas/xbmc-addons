@@ -67,6 +67,8 @@ def build_menu():
   soup = BeautifulSoup(str(content), convertEntities=BeautifulSoup.HTML_ENTITIES)
   items = soup.find('div',{'class' : 'navTop'}).findAll('div')
 
+  add_dir('[COLOR red]Nổi bật/Mới nhất[/COLOR]','', 4, get_thumbnail_url())
+
   for item in items:
     if item.parent.a.text != u'Thiết Bị' and item.parent.a.text != u'Videos':
       prefix = item.parent.a.text
@@ -81,6 +83,13 @@ def build_menu():
             add_dir(title, url, 1, get_thumbnail_url())
   add_dir('Tìm kiếm','', 100, get_thumbnail_url())
 
+def home_hot():
+  add_dir('Dành cho bạn','http://megabox.vn/danh-cho-ban.html', 1, get_thumbnail_url())
+  add_dir('Mới ra lò','http://megabox.vn/moi-ra-lo.html', 1, get_thumbnail_url())
+  add_dir('Xem nhiều nhất','http://megabox.vn/hot.html', 1, get_thumbnail_url())
+  add_dir('Phim lẻ mới nhất','http://megabox.vn/phim-le/moi-nhat.html', 1, get_thumbnail_url())
+  add_dir('Phim bộ mới nhất','http://megabox.vn/phim-bo/moi-nhat.html', 1, get_thumbnail_url())
+  
 def search():
   query = common.getUserInput('Tìm kiếm Phim', '')
   if query is None:
@@ -286,6 +295,8 @@ elif mode == 2:
   play_movie(url,False)
 elif mode == 3:
   list_movies_category(url)
+elif mode == 4:
+  home_hot()
 elif mode == 10:
   play_movie(url)
 elif mode == 100:
