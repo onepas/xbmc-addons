@@ -88,8 +88,46 @@ def home():
 			#addDir('[COLOR yellow]' + name + '[/COLOR]',fptplay + url,3,logos + 'fptplay.png')
 		else:
 			addDir( name , fptplay + url ,1, get_thumbnail_url())	
+
+	addDir('Thuý Nga - Tổng hợp','http://ott.thuynga.com/vi/genre/index/22/3', 200, get_thumbnail_url())
+	addDir('Thuý Nga - Hài kịch','http://ott.thuynga.com/vi/genre/index/26/3', 200, get_thumbnail_url())
+	addDir('Thuý Nga - Hậu trường','http://ott.thuynga.com/vi/genre/index/64/3', 200, get_thumbnail_url())
+
 	addDir('Tìm kiếm',fptplay, 100, get_thumbnail_url())		
 								
+								
+def show_thuy_nga_list(url):
+	req = urllib2.Request(url)
+	req.add_header('User-Agent', 'Mozilla/5.0 (Windows; U; Windows NT 5.1; en-GB; rv:1.9.0.4) Gecko/2008092417 Firefox/4.0.4')
+	response = urllib2.urlopen(req, timeout=90)
+	content=response.read()
+	response.close()
+
+	thuyngaUrl = 'http://ott.thuynga.com/'
+
+	match=re.compile('<div class="image-wrapper">.*?<a href="(.*?)" style="background-image: url\(\'(.*?)\'\)".*?<h3>.*?<a href=".*?">(.*?)</a>.*?</h3>.*?<div class="content">.*?<p>(.*?)</p>.*?</div>.*?<div style="clear:both;"></div>',re.DOTALL).findall(content)
+	for url,thumbnail,title,summary in match:	
+		addDir(title,thuyngaUrl + url,299,thumbnail + '?f.png',summary)
+
+	match=re.compile('<ul>(.*?)<div class="next button">.*?</ul>').findall(content)
+	if len(match) > 0:
+		content = match[0]
+		match=re.compile('<li><a href="(.*?)">(.*?)</a></li>').findall(content)
+		for url,name in match:	
+			addDir('[COLOR lime]Trang ' + name + '[/COLOR]', url, 200, get_thumbnail_url())
+
+def show_thuy_nga_play(url):
+	req = urllib2.Request(url)
+	req.add_header('User-Agent', 'Mozilla/5.0 (Windows; U; Windows NT 5.1; en-GB; rv:1.9.0.4) Gecko/2008092417 Firefox/4.0.4')
+	response = urllib2.urlopen(req, timeout=90)
+	content=response.read()
+	response.close()
+
+	match=re.compile('var iosUrl = \'(.*?)\';').findall(content)
+	if len(match) > 0:
+		link = match[0]
+		listitem = xbmcgui.ListItem(path=link)
+      	xbmcplugin.setResolvedUrl(int(sys.argv[1]), True, listitem)
 def plist(url):	
 	req = urllib2.Request(url)
 	req.add_header('User-Agent', 'Mozilla/5.0 (Windows; U; Windows NT 5.1; en-GB; rv:1.9.0.4) Gecko/2008092417 Firefox/4.0.4')
@@ -182,13 +220,13 @@ def get_params():
                         
     return param
 
-def addDir(name,url,mode,iconimage):
+def addDir(name,url,mode,iconimage,plot=''):
     u=sys.argv[0]+"?url="+urllib.quote_plus(url)+"&mode="+str(mode)+"&name="+urllib.quote_plus(name)
     ok=True
     liz=xbmcgui.ListItem(name, iconImage="DefaultFolder.png", thumbnailImage=iconimage)
     isFolder = True
-    liz.setInfo( type="Video", infoLabels={ "Title": name } )
-    if mode == 5:
+    liz.setInfo( type="Video", infoLabels={ "Title": name,"Plot":plot } )
+    if mode == 5 or mode ==299:
     	liz.setProperty('IsPlayable', 'true')
     	isFolder = False
     ok=xbmcplugin.addDirectoryItem(handle=int(sys.argv[1]),url=u,listitem=liz,isFolder=isFolder)
@@ -238,6 +276,12 @@ elif mode==4:
 		
 elif mode==5:
    	vlinks(url,name)
+
+elif mode==200:
+   	show_thuy_nga_list(url)
+
+elif mode==299:
+   	show_thuy_nga_play(url)
 
 elif mode==100:
    	search()
