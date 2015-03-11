@@ -15,10 +15,12 @@ GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License      
 along with this program. If not, see <http://www.gnu.org/licenses/  
-'''                                                                           
+'''                     
+                                                      
 import CommonFunctions as common
 import urllib,urllib2,re,os
 import random
+import json
 import time
 import xbmc,xbmcplugin,xbmcgui,xbmcaddon
 from BeautifulSoup import BeautifulSoup
@@ -76,19 +78,16 @@ def get_thumbnail_url():
 	return url
 
 def home():
-	req = urllib2.Request(fptplay)
-	req.add_header('User-Agent', 'Mozilla/5.0 (Windows; U; Windows NT 5.1; en-GB; rv:1.9.0.4) Gecko/2008092417 Firefox/4.0.4')
-	response = urllib2.urlopen(req, timeout=90)
-	link=response.read()
-	response.close()
-	match=re.compile("<li ><a href=\"(.+?)\" class=\".+?\">(.+?)<\/a><\/li>").findall(link)
-	for url,name in match:
-		if 'livetv' in url:
-			print url
-			#addDir('[COLOR yellow]' + name + '[/COLOR]',fptplay + url,3,logos + 'fptplay.png')
-		else:
+	link=make_request(fptplay)
+	
+	match=re.compile('<ul class="top_menu reponsive">(.+?)</ul>',re.DOTALL).findall(link)
+	if len(match) > 0:
+		link = match[0]
+		match=re.compile("<a href=\"(.+?)\"\s*class=\".+?\">(.+?)<\/a>").findall(link)
+		for url,name in match:
 			addDir( name , fptplay + url ,1, get_thumbnail_url())	
 
+	
 	addDir('Thuý Nga - Tổng hợp','http://ott.thuynga.com/vi/genre/index/22/3', 200, get_thumbnail_url())
 	addDir('Thuý Nga - Hài kịch','http://ott.thuynga.com/vi/genre/index/26/3', 200, get_thumbnail_url())
 	addDir('Thuý Nga - Hậu trường','http://ott.thuynga.com/vi/genre/index/64/3', 200, get_thumbnail_url())
@@ -107,7 +106,7 @@ def show_thuy_nga_list(url):
 
 	match=re.compile('<div class="image-wrapper">.*?<a href="(.*?)" style="background-image: url\(\'(.*?)\'\)".*?<h3>.*?<a href=".*?">(.*?)</a>.*?</h3>.*?<div class="content">.*?<p>(.*?)</p>.*?</div>.*?<div style="clear:both;"></div>',re.DOTALL).findall(content)
 	for url,thumbnail,title,summary in match:	
-		addDir(title,thuyngaUrl + url,299,thumbnail + '?f.png',summary)
+		addDir(title,thuyngaUrl + url,299,thumbnail + '?f.png',plot=summary,playable=True)
 
 	match=re.compile('<ul>(.*?)<div class="next button">.*?</ul>').findall(content)
 	if len(match) > 0:
@@ -128,79 +127,66 @@ def show_thuy_nga_play(url):
 		link = match[0]
 		listitem = xbmcgui.ListItem(path=link)
       	xbmcplugin.setResolvedUrl(int(sys.argv[1]), True, listitem)
-def plist(url):	
-	req = urllib2.Request(url)
-	req.add_header('User-Agent', 'Mozilla/5.0 (Windows; U; Windows NT 5.1; en-GB; rv:1.9.0.4) Gecko/2008092417 Firefox/4.0.4')
-	response = urllib2.urlopen(req, timeout=90)
-	link=response.read()
-	response.close()
-	match=re.compile("<div class=\"col\">\s*<a href=\"([^\"]+)\">\s*<img src=\"([^\"]*)\" alt=\"(.+?)\"").findall(link)
-	for url,thumbnail,name in match:	
-		addDir(name.replace('&#39;',"'"),fptplay + url,4,thumbnail)
-	match=re.compile("<li><a href=\"(.+?)\">(\d+)<\/a><\/li>").findall(link)
-	for url,name in match:	
-		addDir('[COLOR lime]Trang ' + name + '[/COLOR]',fptplay + url,2,logos + 'fptplay.png')
+
+def plist(url,page = 0):	
+	for page in range(1,20):
+		url_with_page = url + '/' + str(page)
+		json_data=make_request(url_with_page)
+		match=json.loads(json_data)
+		if len(match['videos_list']) == 0:
+			break
+		for video in match['videos_list']:
+			title = video['title']
+			thumbnail = video['thumb']
+			description = video['description']
+			link_video = video['link_video']
+			episode_type = video['episode_type']
+			if 'Single' in episode_type:
+				addDir( title.encode('utf8'),fptplay + link_video,4,thumbnail,plot=description,playable=True)
+			else:
+				addDir( title.encode('utf8'),fptplay + link_video,4,thumbnail,plot=description)
+
 
 def dirs(url):
-	req = urllib2.Request(url)
-	req.add_header('User-Agent', 'Mozilla/5.0 (Windows; U; Windows NT 5.1; en-GB; rv:1.9.0.4) Gecko/2008092417 Firefox/4.0.4')
-	response = urllib2.urlopen(req, timeout=90)
-	link=response.read()
-	response.close()
-	match=re.compile("<h3><a href=\"(.+?)\">(.+?)<\/a><\/h3>").findall(link)
+	link=make_request(url)
+	match=re.compile('<a class="col-xs-12 link_title_header" href="/the-loai-more/(.+?)/1">\s*<span class="pull-left" >(.+?)</span >').findall(link)
+	
 	for url,name in match:	
-		addDir(name.replace('&#39;',"'"),fptplay + url,2,  get_thumbnail_url())
+		addDir(name,fptplay + 'get_all_vod_structure/news/' + url,2, get_thumbnail_url(), page=1)
 
 def episodes(url):
-	req = urllib2.Request(url)
-	req.add_header('User-Agent', 'Mozilla/5.0 (Windows; U; Windows NT 5.1; en-GB; rv:1.9.0.4) Gecko/2008092417 Firefox/4.0.4')
-	response = urllib2.urlopen(req, timeout=90)
-	link=response.read()
-	response.close()
-	title=re.compile('<title>([^\']+)</title>').findall(link)		
-	match=re.compile("<li class=\"(.*?)\" data=\"(.*?)\" href=\"\/Video([^\"]*)\" onclick=\".*?\"><a>(.*?)<\/a><\/li>", re.MULTILINE).findall(link)
-	for cls,data,url,name in match:
-		addDir(('%s   -   %s' % ('Tập ' + name,title[-1].replace('&#39;',"'"))),('%s%s' % (fptplay, data)),5, get_thumbnail_url())
-						
-def index(url):
-	req = urllib2.Request(url)
-	req.add_header('User-Agent', 'Mozilla/5.0 (Windows; U; Windows NT 5.1; en-GB; rv:1.9.0.4) Gecko/2008092417 Firefox/4.0.4')
-	response = urllib2.urlopen(req, timeout=90)
-	link=response.read()
-	response.close()
-	match=re.compile("channel=\"(.*?)\" href=\"(.+?)\" data=\".+?\">\s+<img src=\"(.*?)\"").findall(link)
-	for name,url,thumbnail in match:
-		addDir('[COLOR lime]' + name + '[/COLOR]',fptplay + url,5,thumbnail)						
 
-def addLink(name,url,iconimage):
-    ok=True
-    liz=xbmcgui.ListItem(name, iconImage="DefaultVideo.png", thumbnailImage=iconimage)
-    liz.setInfo( type="Video", infoLabels={ "Title": name } )
-    ok=xbmcplugin.addDirectoryItem(handle=int(sys.argv[1]),url=url,listitem=liz)
-    return ok
-			
-def vlinks(url,name):
-	req = urllib2.Request(url)
-	req.add_header('User-Agent', 'Mozilla/5.0 (Windows; U; Windows NT 5.1; en-GB; rv:1.9.0.4) Gecko/2008092417 Firefox/4.0.4')
-	req.add_header('Referer', fptplay)
-	response = urllib2.urlopen(req, timeout=90)
-	link=response.read()
-	response.close()
-
-	if 'livetv' in url:
-		match=re.compile('var video_str = "<video id=\'main-video\' src=\'" \+ "(.+?)"').findall(link)
-		for url in match:
-			addLink(name,url.replace('1000.stream','2500.stream'),logos + 'fptplay.png')						
+	link=make_request(url)
+	title=re.compile('<title >([^\']+)</title >').findall(link)	
+	title = title[-1].replace('&#39;',"'")
+	match=re.compile('<div class="eps_vod caption">\s*<a data="(.+?)".+?>(.+?)</a>',re.DOTALL).findall(link)
+	if len(match) > 0:
+		for url,name in match:
+			addDir(('%s   -   %s' % (name,title)),('%s%s' % (fptplay, url)),5, get_thumbnail_url(),playable=True)
 	else:
-		listitem = xbmcgui.ListItem(path=link)
-      	xbmcplugin.setResolvedUrl(int(sys.argv[1]), True, listitem)
+		match=re.compile("CallGetVOD\('(.+?)', '(.+?)', currentChapter\);").findall(link)
+		if len(match) > 0:
+			url = fptplay + 'getvod/' + match[0][0] + '/' + match[0][1] + '/1'
+			vlinks(url,'')
+											
+
+def vlinks(url,name):
+	link=make_request(url)
+	listitem = xbmcgui.ListItem(path=link)
+	xbmcplugin.setResolvedUrl(int(sys.argv[1]), True, listitem)
 
 def search():
 	query = common.getUserInput('Tìm kiếm Phim', '')
   	if query is None:
 		return
-	url = fptplay + '/Search/' + urllib.quote_plus(query)
-	plist(url)
+	url = fptplay + '/search/' + urllib.quote_plus(query)
+
+	link=make_request(url)
+	match=re.compile('<a href="(.+?)" title="(.+?)" class="item_image">\s*<img src="(.+?)".+?').findall(link)
+
+	for url,name, thumbnail in match:
+		title = name.replace('&#39;',"'")
+		addDir( title,fptplay + url,4,thumbnail,playable=True)
 
 def get_params():
     param=[]
@@ -220,22 +206,27 @@ def get_params():
                         
     return param
 
-def addDir(name,url,mode,iconimage,plot=''):
-    u=sys.argv[0]+"?url="+urllib.quote_plus(url)+"&mode="+str(mode)+"&name="+urllib.quote_plus(name)
+def addDir(name,url,mode,iconimage,page=0,plot='',playable=False):
+    u=sys.argv[0]+"?url="+urllib.quote_plus(url)+"&mode="+str(mode)+"&page="+str(page)+"&name="+urllib.quote_plus(name)
     ok=True
     liz=xbmcgui.ListItem(name, iconImage="DefaultFolder.png", thumbnailImage=iconimage)
     isFolder = True
-    liz.setInfo( type="Video", infoLabels={ "Title": name,"Plot":plot } )
-    if mode == 5 or mode ==299:
+    liz.setInfo( type="Video", infoLabels={ "Title": name, "plot":plot } )
+    if playable:
     	liz.setProperty('IsPlayable', 'true')
     	isFolder = False
     ok=xbmcplugin.addDirectoryItem(handle=int(sys.argv[1]),url=u,listitem=liz,isFolder=isFolder)
     return ok
                       
+
+xbmcplugin.setContent(int(sys.argv[1]), 'movies')
+
 params=get_params()
+
 url=None
 name=None
 mode=None
+page=0
 
 try:
     url=urllib.unquote_plus(params["url"])
@@ -247,6 +238,11 @@ except:
     pass
 try:
     mode=int(params["mode"])
+except:
+    pass
+
+try:
+    page=int(params["page"])
 except:
     pass
 
@@ -264,12 +260,8 @@ elif mode==1:
 		
 elif mode==2:
     print ""+url
-    plist(url)
-		
-elif mode==3:
-    print ""+url
-    index(url)
-		
+    plist(url,page)
+			
 elif mode==4:
     print ""+url
     episodes(url)
