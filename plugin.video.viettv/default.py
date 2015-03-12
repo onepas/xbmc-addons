@@ -135,7 +135,9 @@ if mode ==None:
     response = urllib2.urlopen(req, timeout=90)
     link=response.read()
     response.close()
-    match=re.compile("channel=\"(.*?)\" href=\".+?\" data=\"(.*?)\" adsstatus=\".+?\">\s+<img src=\"(.*?)\"").findall(link)
+    #match=re.compile("channel=\"(.*?)\" href=\".+?\" data=\"(.*?)\" adsstatus=\".+?\">\s+<img src=\"(.*?)\"").findall(link)
+    match=re.compile('channel="(.*?)" href=".+?" data="(.+?)" adsstatus="">\s\s*\s*\s*\s*<img class="img-responsive" src="(.+?)\?.+?"').findall(link)[:78]  
+    
     for name,url,thumbnail in match:
         file_link = 'http://fptplay.net' + url
         imgurl = thumbnail
