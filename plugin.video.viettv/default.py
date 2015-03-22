@@ -2,19 +2,31 @@ import xbmc, xbmcgui, xbmcaddon, xbmcplugin, re
 import urllib, urllib2
 import re, string, json
 import threading
-import os
+import os,sys
 import base64
 import urlparse
 import xbmcplugin
 import random
+import pyfscache
+
+reload(sys);
+sys.setdefaultencoding("utf8")
 
 from BeautifulSoup import BeautifulSoup
 
 __settings__ = xbmcaddon.Addon(id='plugin.video.viettv')
+home = __settings__.getAddonInfo('path')
 __video_quality = __settings__.getSetting('video_quality') #values="500|1000|2500"
 __video_streaming = __settings__.getSetting('video_streaming') #values="f4m|m3u8"
 
+cachePath = xbmc.translatePath( os.path.join( home, 'cache' ) )
+cache = pyfscache.FSCache(cachePath, days=7)
+
 __thumbnails = []
+
+def messageBox(title='VietMovie', message = 'message'):
+    dialog = xbmcgui.Dialog()
+    dialog.ok(str(title), str(message))
 
 def make_request(url, headers=None):
     if headers is None:
@@ -33,16 +45,43 @@ def make_request(url, headers=None):
         if hasattr(e, 'code'):
             print 'We failed with error code - %s.' % e.code
 
+def setCache(key,value):
+    try:
+        cache.expire(key)
+    except:
+        pass
+    try:
+        cache[key] = value
+    except:
+        pass
+
+def getCache(key):
+    try:
+        value = cache[key]
+        return value
+    except:
+        return None
+
+def clearCache():
+    try:
+        cache.purge()
+    except:
+        pass
+
 def get_thumbnail_url():
     global __thumbnails
     url = ''
     try:
         if len(__thumbnails) == 0:
-            content = make_request('https://raw.github.com/onepas/xbmc-addons/master/thumbnails/thumbnails.xml')
+            content = getCache('thumbnails')
+            if content == None:
+                content = make_request('https://raw.github.com/onepas/xbmc-addons/master/thumbnails/thumbnails.xml')
+                setCache('thumbnails',content)
+
             soup = BeautifulSoup(str(content), convertEntities=BeautifulSoup.HTML_ENTITIES)
             __thumbnails = soup.findAll('thumbnail')
 
-        url = random.choice(__thumbnails).text
+        url = random.choice(__thumbnails).text 
     except:
         pass
       
@@ -85,7 +124,6 @@ if paramstring:
 
     try:
         proxy_use_chunks_temp = params['proxy_for_chunks'][0]
-        import json
         proxy_use_chunks=json.loads(proxy_use_chunks_temp)
     except:pass
     
@@ -130,15 +168,25 @@ def playF4mLink(url,name,proxy=None,use_proxy_for_chunks=False,auth_string=None,
     
 if mode ==None:
     
-    req = urllib2.Request(sourceUrl)
-    req.add_header('User-Agent', 'Mozilla/5.0 (Windows; U; Windows NT 5.1; en-GB; rv:1.9.0.4) Gecko/2008092417 Firefox/4.0.4')
-    response = urllib2.urlopen(req, timeout=90)
-    link=response.read()
-    response.close()
-    #match=re.compile("channel=\"(.*?)\" href=\".+?\" data=\"(.*?)\" adsstatus=\".+?\">\s+<img src=\"(.*?)\"").findall(link)
-    match=re.compile('channel="(.*?)" href=".+?" data="(.+?)" adsstatus="">\s\s*\s*\s*\s*<img class="img-responsive" src="(.+?)\?.+?"').findall(link)[:78]  
-    
-    for name,url,thumbnail in match:
+    channelJson = getCache('channels')
+    if channelJson == None:
+        req = urllib2.Request(sourceUrl)
+        req.add_header('User-Agent', 'Mozilla/5.0 (Windows; U; Windows NT 5.1; en-GB; rv:1.9.0.4) Gecko/2008092417 Firefox/4.0.4')
+        response = urllib2.urlopen(req, timeout=90)
+        link=response.read()
+        response.close()
+        match=re.compile('channel="(.*?)" href=".+?" data="(.+?)" adsstatus="">\s\s*\s*\s*\s*<img class="img-responsive" src="(.+?)\?.+?"').findall(link)[:78]  
+        channelJson = json.dumps(match)
+        
+        setCache('channels',channelJson)
+
+    jsonChannels = json.loads(channelJson)
+
+    for i in range(len(jsonChannels)):
+        name = str(jsonChannels[i][0])
+        url = str(jsonChannels[i][1])
+        thumbnail = str(jsonChannels[i][2])
+
         file_link = 'http://fptplay.net' + url
         imgurl = thumbnail
         maxbitrate = 2500
@@ -201,6 +249,7 @@ elif mode == "play":
             playF4mLink(streamUrl,name, proxy_string, proxy_use_chunks,auth_string,streamtype,setResolved)
     
 elif mode == "settings":
+    clearCache()
     __settings__.openSettings()
 
 if not play:

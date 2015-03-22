@@ -23,6 +23,8 @@ import random
 import json
 import time
 import xbmc,xbmcplugin,xbmcgui,xbmcaddon
+import pyfscache
+
 from BeautifulSoup import BeautifulSoup
 
 addon      = xbmcaddon.Addon('plugin.video.vietplay')
@@ -34,7 +36,73 @@ icon       = xbmc.translatePath(os.path.join(home, 'icon.png'))
 logos      = xbmc.translatePath(os.path.join(home, 'logos\\'))
 fptplay    = 'http://fptplay.net/'
 
+cachePath = xbmc.translatePath( os.path.join( home, 'cache' ) )
+cache = pyfscache.FSCache(cachePath, days=7)
+
 __thumbnails = []
+
+def messageBox(title='VietMovie', message = 'message'):
+    dialog = xbmcgui.Dialog()
+    dialog.ok(str(title), str(message))
+
+def make_request(url, headers=None):
+    if headers is None:
+        headers = {'User-agent' : 'Mozilla/5.0 (Windows NT 6.1; WOW64; rv:15.0) Gecko/20100101 Firefox/15.0.1',
+                   'Referer' : 'http://www.google.com'}
+    try:
+        req = urllib2.Request(url,headers=headers)
+        f = urllib2.urlopen(req)
+        body=f.read()
+        return body
+    except urllib2.URLError, e:
+        print 'We failed to open "%s".' % url
+        if hasattr(e, 'reason'):
+            print 'We failed to reach a server.'
+            print 'Reason: ', e.reason
+        if hasattr(e, 'code'):
+            print 'We failed with error code - %s.' % e.code
+
+def setCache(key,value):
+    try:
+        cache.expire(key)
+    except:
+        pass
+    try:
+        cache[key] = value
+    except:
+        pass
+
+def getCache(key):
+    try:
+        value = cache[key]
+        return value
+    except:
+        return None
+
+def clearCache():
+    try:
+        cache.purge()
+    except:
+        pass
+
+def get_thumbnail_url():
+    global __thumbnails
+    url = ''
+    try:
+        if len(__thumbnails) == 0:
+            content = getCache('thumbnails')
+            if content == None:
+                content = make_request('https://raw.github.com/onepas/xbmc-addons/master/thumbnails/thumbnails.xml')
+                setCache('thumbnails',content)
+
+            soup = BeautifulSoup(str(content), convertEntities=BeautifulSoup.HTML_ENTITIES)
+            __thumbnails = soup.findAll('thumbnail')
+
+        url = random.choice(__thumbnails).text 
+    except:
+        pass
+      
+    return url
 
 def _makeCookieHeader(cookie):
 	cookieHeader = ""
@@ -42,43 +110,12 @@ def _makeCookieHeader(cookie):
 		cookieHeader += "%s=%s; " % (value.key, value.value)
 	return cookieHeader
 
-def make_request(url, params = None,  headers=None):
-	if headers is None:
-		headers = {'User-agent' : 'Mozilla/5.0 (Windows NT 6.1; WOW64; rv:15.0) Gecko/20100101 Firefox/15.0.1',
-	           'Referer' : 'http://www.google.com'}
-	try:
-		data = None
-		if params is not None:
-		  	data = urllib.urlencode(params)
-		req = urllib2.Request(url,data,headers)
-		f = urllib2.urlopen(req)
-		body=f.read()
-		return body
-	except urllib2.URLError, e:
-		print 'We failed to open "%s".' % url
-		if hasattr(e, 'reason'):
-		    print 'We failed to reach a server.'
-		    print 'Reason: ', e.reason
-		if hasattr(e, 'code'):
-		    print 'We failed with error code - %s.' % e.code
-
-def get_thumbnail_url():
-	global __thumbnails
-	url = ''
-	try:
-		if len(__thumbnails) == 0:
-			content = make_request('https://raw.github.com/onepas/xbmc-addons/master/thumbnails/thumbnails.xml')
-			soup = BeautifulSoup(str(content), convertEntities=BeautifulSoup.HTML_ENTITIES)
-			__thumbnails = soup.findAll('thumbnail')
-
-		url = random.choice(__thumbnails).text 
-	except:
-		pass
-
-	return url
 
 def home():
-	link=make_request(fptplay)
+	link = getCache('home')
+	if link == None:
+		link=make_request(fptplay)
+		setCache('home', link)
 	
 	match=re.compile('<ul class="top_menu reponsive">(.+?)</ul>',re.DOTALL).findall(link)
 	if len(match) > 0:
@@ -92,7 +129,8 @@ def home():
 	addDir('Thuý Nga - Hài kịch','http://ott.thuynga.com/vi/genre/index/26/3', 200, get_thumbnail_url())
 	addDir('Thuý Nga - Hậu trường','http://ott.thuynga.com/vi/genre/index/64/3', 200, get_thumbnail_url())
 
-	addDir('Tìm kiếm',fptplay, 100, get_thumbnail_url())		
+	addDir('Tìm kiếm',fptplay, 100, get_thumbnail_url())	
+	addDir('Xóa cache',fptplay, 1000, get_thumbnail_url())		
 								
 								
 def show_thuy_nga_list(url):
@@ -149,6 +187,7 @@ def plist(url,page = 0):
 
 def dirs(url):
 	link=make_request(url)
+	
 	match=re.compile('<a class="col-xs-12 link_title_header" href="/the-loai-more/(.+?)/1">\s*<span class="pull-left" >(.+?)</span >').findall(link)
 	
 	for url,name in match:	
@@ -278,4 +317,6 @@ elif mode==299:
 elif mode==100:
    	search()
 			
+elif mode==1000:
+   	clearCache()
 xbmcplugin.endOfDirectory(int(sys.argv[1]))

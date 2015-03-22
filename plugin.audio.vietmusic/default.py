@@ -8,7 +8,7 @@ import xbmcgui
 import xbmcaddon
 import urlfetch
 import re
-import random
+import random,pyfscache
 
 from BeautifulSoup import BeautifulSoup
 
@@ -22,45 +22,82 @@ thumbnails = xbmc.translatePath( os.path.join( home, 'thumbnails\\' ) )
 __video_quality = __settings__.getSetting('video_quality') #values="240p|360p|480p|720p|1080p"
 __mp3_quality = __settings__.getSetting('mp3_quality') #values="32K|128K|320K|500K|Lossless"
 
+cachePath = xbmc.translatePath( os.path.join( home, 'cache' ) )
+cache = pyfscache.FSCache(cachePath, days=7)
+
 __thumbnails = []
+
+def toast(message, timeout=7000):
+  xbmc.executebuiltin((u'XBMC.Notification("%s", "%s", %s)' % ('VietMovie', message, timeout)).encode("utf-8"))
+
+def messageBox(title='VietMovie', message = 'message'):
+  dialog = xbmcgui.Dialog()
+  dialog.ok(str(title), str(message))
+
+def setCache(key,value):
+  try:
+    cache.expire(key)
+  except:
+    pass
+  try:
+    cache[key] = value
+  except:
+    pass
+
+def getCache(key):
+  try:
+    value = cache[key]
+    return value
+  except:
+    return None
+
+def clearCache():
+  try:
+    cache.purge()
+  except:
+    pass
 
 def get_thumbnail_url():
   global __thumbnails
   url = ''
   try:
     if len(__thumbnails) == 0:
-      content = make_request('https://raw.github.com/onepas/xbmc-addons/master/thumbnails/thumbnails.xml')
+      content = getCache('thumbnails')
+      if content == None:
+        content = make_request('https://raw.github.com/onepas/xbmc-addons/master/thumbnails/thumbnails.xml')
+        setCache('thumbnails',content)
+
       soup = BeautifulSoup(str(content), convertEntities=BeautifulSoup.HTML_ENTITIES)
       __thumbnails = soup.findAll('thumbnail')
 
-    url = random.choice(__thumbnails).text
+    url = random.choice(__thumbnails).text 
   except:
     pass
   
   return url
 
 def _makeCookieHeader(cookie):
-      cookieHeader = ""
-      for value in cookie.values():
-          cookieHeader += "%s=%s; " % (value.key, value.value)
-      return cookieHeader
+  cookieHeader = ""
+  for value in cookie.values():
+      cookieHeader += "%s=%s; " % (value.key, value.value)
+  return cookieHeader
 
 def make_request(url, headers=None):
-        if headers is None:
-            headers = {'User-agent' : 'Mozilla/5.0 (Windows NT 6.1; WOW64; rv:15.0) Gecko/20100101 Firefox/15.0.1',
-                       'Referer' : 'http://www.google.com'}
-        try:
-            req = urllib2.Request(url,headers=headers)
-            f = urllib2.urlopen(req)
-            body=f.read()
-            return body
-        except urllib2.URLError, e:
-            print 'We failed to open "%s".' % url
-            if hasattr(e, 'reason'):
-                print 'We failed to reach a server.'
-                print 'Reason: ', e.reason
-            if hasattr(e, 'code'):
-                print 'We failed with error code - %s.' % e.code
+  if headers is None:
+      headers = {'User-agent' : 'Mozilla/5.0 (Windows NT 6.1; WOW64; rv:15.0) Gecko/20100101 Firefox/15.0.1',
+                 'Referer' : 'http://www.google.com'}
+  try:
+      req = urllib2.Request(url,headers=headers)
+      f = urllib2.urlopen(req)
+      body=f.read()
+      return body
+  except urllib2.URLError, e:
+      print 'We failed to open "%s".' % url
+      if hasattr(e, 'reason'):
+          print 'We failed to reach a server.'
+          print 'Reason: ', e.reason
+      if hasattr(e, 'code'):
+          print 'We failed with error code - %s.' % e.code
 
 def get_chiasenhac(url = None, page = 0):
   if url == '':
@@ -262,6 +299,7 @@ def get_categories():
   add_dir('Tìm kiếm Video','', 212, get_thumbnail_url(), '', type, 0)
   add_dir('Tìm kiếm theo tên album','', 211, get_thumbnail_url(), '', type, 0)
   add_dir('Add-on settings', '', 99, get_thumbnail_url(), '', type, 0)
+  add_dir('Xóa cache', '', 1000, get_thumbnail_url(), '', type, 0)
     
 
 def get_sub_categories(url, mode):
@@ -650,5 +688,7 @@ elif mode==102:
     pass
 elif mode==99:
    __settings__.openSettings()
+elif mode==1000:
+   clearCache()
    
 xbmcplugin.endOfDirectory(int(sys.argv[1]))

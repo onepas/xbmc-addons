@@ -9,6 +9,7 @@ import urlfetch
 import re
 import random
 import time
+import pyfscache
 
 from BeautifulSoup import BeautifulSoup
 
@@ -18,14 +19,51 @@ home = __settings__.getAddonInfo('path')
 icon = xbmc.translatePath( os.path.join( home, 'icon.png' ) )
 thumbnails = xbmc.translatePath( os.path.join( home, 'thumbnails\\' ) )
 
+cachePath = xbmc.translatePath( os.path.join( home, 'cache' ) )
+cache = pyfscache.FSCache(cachePath, days=7)
+
 __thumbnails = []
+
+def toast(message, timeout=7000):
+  xbmc.executebuiltin((u'XBMC.Notification("%s", "%s", %s)' % ('VietMovie', message, timeout)).encode("utf-8"))
+
+def messageBox(title='VietMovie', message = 'message'):
+  dialog = xbmcgui.Dialog()
+  dialog.ok(str(title), str(message))
+
+def setCache(key,value):
+  try:
+    cache.expire(key)
+  except:
+    pass
+  try:
+    cache[key] = value
+  except:
+    pass
+
+def getCache(key):
+  try:
+    value = cache[key]
+    return value
+  except:
+    return None
+
+def clearCache():
+  try:
+    cache.purge()
+  except:
+    pass
 
 def get_thumbnail_url():
   global __thumbnails
   url = ''
   try:
     if len(__thumbnails) == 0:
-      content = make_request('https://raw.github.com/onepas/xbmc-addons/master/thumbnails/thumbnails.xml')
+      content = getCache('thumbnails')
+      if content == None:
+        content = make_request('https://raw.github.com/onepas/xbmc-addons/master/thumbnails/thumbnails.xml')
+        setCache('thumbnails',content)
+
       soup = BeautifulSoup(str(content), convertEntities=BeautifulSoup.HTML_ENTITIES)
       __thumbnails = soup.findAll('thumbnail')
 
@@ -63,7 +101,11 @@ def make_request(url, params = None,  headers=None):
 
 
 def build_menu():
-  content = make_request('http://megabox.vn/')
+  content = getCache('build_menu')
+  if content == None:
+    content = make_request('http://megabox.vn/')
+    setCache('build_menu',content)
+
   soup = BeautifulSoup(str(content), convertEntities=BeautifulSoup.HTML_ENTITIES)
   items = soup.find('div',{'class' : 'navTop'}).findAll('div')
 
@@ -82,6 +124,7 @@ def build_menu():
           else:
             add_dir(title, url, 1, get_thumbnail_url())
   add_dir('Tìm kiếm','', 100, get_thumbnail_url())
+  add_dir('Xóa cache','', 1000, get_thumbnail_url())
 
 def home_hot():
   add_dir('Dành cho bạn','http://megabox.vn/danh-cho-ban.html', 1, get_thumbnail_url())
@@ -121,7 +164,7 @@ def search():
       plot = itemStr[d1+3:d2]
       add_dir(espt + title, href, mode, thumb + '?f.png',plot=plot)
 
-def list_movies(url):
+def list_movies(url): 
   content = make_request(url)
   soup = BeautifulSoup(str(content), convertEntities=BeautifulSoup.HTML_ENTITIES)
   items = soup.findAll('div',{'class' : 'picAll'})
@@ -301,5 +344,7 @@ elif mode == 10:
   play_movie(url)
 elif mode == 100:
   search()
+elif mode == 1000:
+  clearCache()
 
 xbmcplugin.endOfDirectory(int(sys.argv[1]))
