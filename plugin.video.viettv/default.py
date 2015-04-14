@@ -1,258 +1,180 @@
-import xbmc, xbmcgui, xbmcaddon, xbmcplugin, re
-import urllib, urllib2
-import re, string, json
-import threading
-import os,sys
-import base64
-import urlparse
+# -*- coding: utf-8 -*-
+#https://www.facebook.com/groups/vietkodi/
+
+import CommonFunctions as common
+import urllib
+import urllib2
+import os
+import xbmc
 import xbmcplugin
-import random
-import pyfscache
+import xbmcgui
+import xbmcaddon
+import re, string, json
+import base64
+
 
 reload(sys);
 sys.setdefaultencoding("utf8")
 
-from BeautifulSoup import BeautifulSoup
-
 __settings__ = xbmcaddon.Addon(id='plugin.video.viettv')
-home = __settings__.getAddonInfo('path')
-__video_quality = __settings__.getSetting('video_quality') #values="500|1000|2500"
-__video_streaming = __settings__.getSetting('video_streaming') #values="f4m|m3u8"
+__language__ = __settings__.getLocalizedString
+_home = __settings__.getAddonInfo('path')
+_icon = xbmc.translatePath( os.path.join( _home, 'icon.png' ))
+_homeUrl = 'maSklWtfX5ualaSQoJSZU6SVopuWmKSZoV6TlJ5qY1VhYF-Imp6VkpJfplY='
 
-cachePath = xbmc.translatePath( os.path.join( home, 'cache' ) )
-cache = pyfscache.FSCache(cachePath, days=7)
+def make_cookie_header(cookie):
+  cookieHeader = ""
+  for value in cookie.values():
+      cookieHeader += "%s=%s; " % (value.key, value.value)
+  return cookieHeader
 
-__thumbnails = []
-
-def messageBox(title='VietMovie', message = 'message'):
-    dialog = xbmcgui.Dialog()
-    dialog.ok(str(title), str(message))
-
-def make_request(url, headers=None):
-    if headers is None:
-        headers = {'User-agent' : 'Mozilla/5.0 (Windows NT 6.1; WOW64; rv:15.0) Gecko/20100101 Firefox/15.0.1',
-                   'Referer' : 'http://www.google.com'}
-    try:
-        req = urllib2.Request(url,headers=headers)
-        f = urllib2.urlopen(req)
-        body=f.read()
-        return body
-    except urllib2.URLError, e:
-        print 'We failed to open "%s".' % url
-        if hasattr(e, 'reason'):
-            print 'We failed to reach a server.'
-            print 'Reason: ', e.reason
-        if hasattr(e, 'code'):
-            print 'We failed with error code - %s.' % e.code
-
-def setCache(key,value):
-    try:
-        cache.expire(key)
-    except:
-        pass
-    try:
-        cache[key] = value
-    except:
-        pass
-
-def getCache(key):
-    try:
-        value = cache[key]
-        return value
-    except:
-        return None
-
-def clearCache():
-    try:
-        cache.purge()
-    except:
-        pass
-
-def get_thumbnail_url():
-    global __thumbnails
-    url = ''
-    try:
-        if len(__thumbnails) == 0:
-            content = getCache('thumbnails')
-            if content == None:
-                content = make_request('https://raw.github.com/onepas/xbmc-addons/master/thumbnails/thumbnails.xml')
-                setCache('thumbnails',content)
-
-            soup = BeautifulSoup(str(content), convertEntities=BeautifulSoup.HTML_ENTITIES)
-            __thumbnails = soup.findAll('thumbnail')
-
-        url = random.choice(__thumbnails).text 
-    except:
-        pass
-      
-    return url
-
-mode =None
-play=False
-
-paramstring=sys.argv[2]
-
-print paramstring
-name=''
-proxy_string=None
-proxy_use_chunks=True
-auth_string=''
-streamtype='HDS'
-setResolved=False
-
-sourceUrl='http://fptplay.net/livetv/'
-
-if paramstring:
-    paramstring="".join(paramstring[1:])
-    params=urlparse.parse_qs(paramstring)
-    url = params['url'][0]
-    try:
-        name = params['name'][0]
-    except:pass
-
-    try:
-        proxy_string = params['proxy'][0]
-    except:pass
-    try:
-        auth_string = params['auth'][0]
-    except:pass
-    print 'auth_string',auth_string
-    try:
-        streamtype = params['streamtype'][0]
-    except:pass
-    print 'streamtype',streamtype
-
-    try:
-        proxy_use_chunks_temp = params['proxy_for_chunks'][0]
-        proxy_use_chunks=json.loads(proxy_use_chunks_temp)
-    except:pass
+def fetch_data(url, headers=None):
+  if headers is None:
+    headers = {'User-agent' : 'Mozilla/5.0 (Windows NT 6.1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/41.0.2228.0 Safari/537.36 VietMedia/1.0',
+                 'Referers' : 'http://www..google.com'}
+  try:
+    req = urllib2.Request(url,headers=headers)
+    f = urllib2.urlopen(req)
+    body=f.read()
+    return body
+  except:
+    pass
     
-    simpleDownloader=False
-    try:
-        simpleDownloader_temp = params['simpledownloader'][0]
-        import json
-        simpleDownloader=json.loads(simpleDownloader_temp)
-    except:pass
-	
-	
-    mode='play'
+def alert(message):
+  xbmcgui.Dialog().ok("Oops!","",message)
 
-    try:    
-        mode =  params['mode'][0]
-    except: pass
-    maxbitrate=0
-    try:
-        maxbitrate =  int(params['maxbitrate'][0])
-    except: pass
-    play=True
+def notification(message, timeout=7000):
+  xbmc.executebuiltin((u'XBMC.Notification("%s", "%s", %s)' % ('VietMedia', message, timeout)).encode("utf-8"))
 
-    try:
-        setResolved = params['setresolved'][0]
-        import json
-        setResolved=json.loads(setResolved)
-    except:setResolved=False
-    
-def playF4mLink(url,name,proxy=None,use_proxy_for_chunks=False,auth_string=None,streamtype='HDS',setResolved=False):
-    from F4mProxy import f4mProxyHelper
-    player=f4mProxyHelper()
-    if setResolved:
-        urltoplay,item=player.playF4mLink(url, name, proxy, use_proxy_for_chunks,maxbitrate,simpleDownloader,auth_string,streamtype,setResolved)
-        item.setProperty("IsPlayable", "true")
-        xbmcplugin.setResolvedUrl(int(sys.argv[1]), True, item)
+def extract(key, enc):
+    dec = []
+    enc = base64.urlsafe_b64decode(enc)
+    for i in range(len(enc)):
+        key_c = key[i % len(key)]
+        dec_c = chr((256 + ord(enc[i]) - ord(key_c)) % 256)
+        dec.append(dec_c)
+    return "".join(dec)
 
+def add_item(name,url,mode,iconimage,query='',type='f',plot='',page=0,playable=False):
+  u=sys.argv[0]+"?url="+urllib.quote_plus(url)+"&mode="+str(mode)+"&query="+str(query)+"&type="+str(type)+"&page="+str(page)
+  ok=True
+  liz=xbmcgui.ListItem(name, iconImage="DefaultFolder.png", thumbnailImage=iconimage)
+  if playable:
+    liz.setProperty('IsPlayable', 'true')
+  liz.setInfo( type="Video", infoLabels={ "Title": name, "plot":plot } )
+  ok=xbmcplugin.addDirectoryItem(handle=int(sys.argv[1]),url=u,listitem=liz,isFolder=(not playable))
+  return ok
+
+def buildCinemaMenu(url):
+  if (url is None):
+    url = extract('100%',_homeUrl)
+
+  if ':query' in url:
+    keyboardHandle = xbmc.Keyboard('','Enter search text')
+    keyboardHandle.doModal()
+    if (keyboardHandle.isConfirmed()):
+      queryText = keyboardHandle.getText()
+      if len(queryText) == 0:
+        return
+      queryText = urllib.quote_plus(queryText)
+      url = url.replace(':query',queryText)
     else:
-        xbmcplugin.endOfDirectory(int(sys.argv[1]), cacheToDisc=False)
-        player.playF4mLink(url, name, proxy, use_proxy_for_chunks,maxbitrate,simpleDownloader,auth_string,streamtype,setResolved)
-    
-    return   
-    
-if mode ==None:
-    
-    channelJson = getCache('channels')
-    if channelJson == None:
-        req = urllib2.Request(sourceUrl)
-        req.add_header('User-Agent', 'Mozilla/5.0 (Windows; U; Windows NT 5.1; en-GB; rv:1.9.0.4) Gecko/2008092417 Firefox/4.0.4')
-        response = urllib2.urlopen(req, timeout=90)
-        link=response.read()
-        response.close()
-        match=re.compile('channel="(.*?)" href=".+?" data="(.+?)" adsstatus="">\s\s*\s*\s*\s*<img class="img-responsive" src="(.+?)\?.+?"').findall(link)[:78]  
-        channelJson = json.dumps(match)
-        
-        setCache('channels',channelJson)
+      return
 
-    jsonChannels = json.loads(channelJson)
+  content = fetch_data(url)
+  jsonObject = json.loads(content)
+  if isinstance(jsonObject,list):
+    for item in jsonObject:
+      title = item['title']
+      thumb = item['thumb']
+      url = item['url']
+      description = item['description']
+      playable = item['playable']
 
-    for i in range(len(jsonChannels)):
-        name = str(jsonChannels[i][0])
-        url = str(jsonChannels[i][1])
-        thumbnail = str(jsonChannels[i][2])
+      add_item(title,url,"default",thumb,plot=description,playable=playable)
+  elif jsonObject.get('url'):
+    link = jsonObject['url']
+    if jsonObject.get('regex'):
+      try:
+        regex = jsonObject['regex']
+        content = fetch_data(link)
+        link=re.compile(regex).findall(content)[0]  
+      except:
+        pass
+    subtitle = ''
+    if jsonObject.get('subtitle'):
+      subtitle = jsonObject['subtitle']
 
-        file_link = 'http://fptplay.net' + url
-        imgurl = thumbnail
-        maxbitrate = 2500
-        proxy = ''
-        usechunks = True
-        title = name.replace('&#39;','\'')
-        liz=xbmcgui.ListItem(title,iconImage=imgurl, thumbnailImage=imgurl)
-        liz.setInfo( type="Video", infoLabels={ "Title": title} )
-        #liz.setProperty("IsPlayable","true")
-        u = sys.argv[0] + "?" + urllib.urlencode({'url': file_link,'mode':'play','name':title,'maxbitrate':maxbitrate,'proxy':proxy,'proxy_for_chunks':usechunks}) 
-        
-        ok=xbmcplugin.addDirectoryItem(handle=int(sys.argv[1]),url=u,listitem=liz,isFolder=False, )
+    listitem = xbmcgui.ListItem(path=link)
+    xbmcplugin.setResolvedUrl(int(sys.argv[1]), True, listitem)
+    if len(subtitle) > 0:
+      subtitlePath = xbmc.translatePath(xbmcaddon.Addon().getAddonInfo('path')).decode("utf-8")
+      subfile = xbmc.translatePath(os.path.join(subtitlePath, "temp.sub"))
+      urllib.urlretrieve (subtitle,subfile )
+      xbmc.sleep(2000)
+      xbmc.Player().setSubtitles(subfile)
+    elif jsonObject.get('subtitle'):
+      notification('Video này không có phụ đề rời.');
 
-    liz=xbmcgui.ListItem("Add-on settings",iconImage="", thumbnailImage="")
-    liz.setInfo( type="Video", infoLabels={ "Title": "Add-on settings"} )
-    u = sys.argv[0] + "?" + urllib.urlencode({'url':'#','mode':'settings','name':'Add-on settings','maxbitrate':0,'proxy':'','proxy_for_chunks':False}) 
-    ok=xbmcplugin.addDirectoryItem(handle=int(sys.argv[1]),url=u,listitem=liz,isFolder=False, )
+  elif jsonObject.get('error') is not None:
+    alert(jsonObject['error'])
 
-elif mode == "play":
-    req = urllib2.Request(url)
-    req.add_header('User-Agent', 'Mozilla/5.0 (Windows; U; Windows NT 5.1; en-GB; rv:1.9.0.4) Gecko/2008092417 Firefox/4.0.4')
-    response = urllib2.urlopen(req, timeout=90)
-    link=response.read()
-    response.close()
-    data = json.loads(link)
-    
-    streamUrl = data['hds_stream_' + __video_quality]
-    
-    if '.m3u8' in streamUrl:
-        listitem = xbmcgui.ListItem( label = str(name), iconImage = "DefaultVideo.png", thumbnailImage = xbmc.getInfoImage( "ListItem.Thumb" ), path=streamUrl )
-        xbmc.Player().play( streamUrl,listitem)
-    else:
-        if __video_streaming == 'm3u8':
-            streamUrl = data['hls_stream']
-            streamUrl = streamUrl.replace('_1000','_' + __video_quality)
-            #kiem tra xem co bitrate nay khong?
-            ok = False
-            try:
-                pDialog = xbmcgui.DialogProgressBG()
-                pDialog.create('', 'Detecting bitrate...')
-                req = urllib2.Request(streamUrl)
-                req.add_header('User-Agent', 'Mozilla/5.0 (Windows; U; Windows NT 5.1; en-GB; rv:1.9.0.4) Gecko/2008092417 Firefox/4.0.4')
-                response = urllib2.urlopen(req, timeout=5)
-                link=response.read()
-                response.close()
-                pDialog.close()
-                pDialog.update(100, message='Bitrate is ' + __video_quality)
-                ok = True
-            except:
-                pDialog.update(100, message='Bitrate is 1000')
-                pDialog.close()
-                pass
-            if not ok:
-                streamUrl = data['hls_stream']
 
-            listitem = xbmcgui.ListItem( label = str(name), iconImage = "DefaultVideo.png", thumbnailImage = xbmc.getInfoImage( "ListItem.Thumb" ), path=streamUrl )
-            xbmc.Player().play( streamUrl,listitem)
-        else:
-            streamUrl = streamUrl + '|Referer=http://play.fpt.vn/static/mediaplayer/FPlayer.swf'
-            playF4mLink(streamUrl,name, proxy_string, proxy_use_chunks,auth_string,streamtype,setResolved)
-    
-elif mode == "settings":
-    clearCache()
-    __settings__.openSettings()
+def get_params():
+  param=[]
+  paramstring=sys.argv[2]
+  if len(paramstring)>=2:
+      params=sys.argv[2]
+      cleanedparams=params.replace('?','')
+      if (params[len(params)-1]=='/'):
+          params=params[0:len(params)-2]
+      pairsofparams=cleanedparams.split('&')
+      param={}
+      for i in range(len(pairsofparams)):
+          splitparams={}
+          splitparams=pairsofparams[i].split('=')
+          if (len(splitparams))==2:
+              param[splitparams[0]]=splitparams[1]
 
-if not play:
-    xbmcplugin.endOfDirectory(int(sys.argv[1]), cacheToDisc=False)
-    
- 
+  return param
+
+xbmcplugin.setContent(int(sys.argv[1]), 'movies')
+
+params=get_params()
+
+url=None
+name=None
+mode=None
+query=''
+type='f'
+page=1
+
+try:
+    type=urllib.unquote_plus(params["type"])
+except:
+    pass
+try:
+    page=int(urllib.unquote_plus(params["page"]))
+except:
+    pass
+try:
+    query=urllib.unquote_plus(params["query"])
+except:
+    pass
+try:
+    url=urllib.unquote_plus(params["url"])
+except:
+    pass
+try:
+    name=urllib.unquote_plus(params["name"])
+except:
+    pass
+try:
+    mode=urllib.unquote_plus(params["mode"])
+except:
+    pass
+
+
+buildCinemaMenu(url)
+
+xbmcplugin.endOfDirectory(int(sys.argv[1]))

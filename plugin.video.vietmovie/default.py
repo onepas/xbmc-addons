@@ -1,272 +1,123 @@
-﻿import CommonFunctions as common
+﻿# -*- coding: utf-8 -*-
+#https://www.facebook.com/groups/vietkodi/
+
+import CommonFunctions as common
 import urllib
 import urllib2
 import os
+import xbmc
 import xbmcplugin
 import xbmcgui
 import xbmcaddon
-import urlfetch
-import re
-import random
-import time
-import pyfscache
+import re, string, json
+import base64
 
-from BeautifulSoup import BeautifulSoup
+
+reload(sys);
+sys.setdefaultencoding("utf8")
 
 __settings__ = xbmcaddon.Addon(id='plugin.video.vietmovie')
 __language__ = __settings__.getLocalizedString
-home = __settings__.getAddonInfo('path')
-icon = xbmc.translatePath( os.path.join( home, 'icon.png' ) )
-thumbnails = xbmc.translatePath( os.path.join( home, 'thumbnails\\' ) )
+_home = __settings__.getAddonInfo('path')
+_icon = xbmc.translatePath( os.path.join( _home, 'icon.png' ))
+_homeUrl = 'maSklWtfX5ualaSQoJSZU6SVopuWmKSZoV6TlJ5qY1VhYF-Imp6VkpJfplY='
 
-cachePath = xbmc.translatePath( os.path.join( home, 'cache' ) )
-cache = pyfscache.FSCache(cachePath, days=7)
-
-__thumbnails = []
-
-def toast(message, timeout=7000):
-  xbmc.executebuiltin((u'XBMC.Notification("%s", "%s", %s)' % ('VietMovie', message, timeout)).encode("utf-8"))
-
-def messageBox(title='VietMovie', message = 'message'):
-  dialog = xbmcgui.Dialog()
-  dialog.ok(str(title), str(message))
-
-def setCache(key,value):
-  try:
-    cache.expire(key)
-  except:
-    pass
-  try:
-    cache[key] = value
-  except:
-    pass
-
-def getCache(key):
-  try:
-    value = cache[key]
-    return value
-  except:
-    return None
-
-def clearCache():
-  try:
-    cache.purge()
-  except:
-    pass
-
-def get_thumbnail_url():
-  global __thumbnails
-  url = ''
-  try:
-    if len(__thumbnails) == 0:
-      content = getCache('thumbnails')
-      if content == None:
-        content = make_request('https://raw.github.com/onepas/xbmc-addons/master/thumbnails/thumbnails.xml')
-        setCache('thumbnails',content)
-
-      soup = BeautifulSoup(str(content), convertEntities=BeautifulSoup.HTML_ENTITIES)
-      __thumbnails = soup.findAll('thumbnail')
-
-    url = random.choice(__thumbnails).text 
-  except:
-    pass
-  
-  return url
-
-def _makeCookieHeader(cookie):
+def make_cookie_header(cookie):
   cookieHeader = ""
   for value in cookie.values():
       cookieHeader += "%s=%s; " % (value.key, value.value)
   return cookieHeader
 
-def make_request(url, params = None,  headers=None):
+def fetch_data(url, headers=None):
   if headers is None:
-    headers = {'User-agent' : 'Mozilla/5.0 (Windows NT 6.1; WOW64; rv:15.0) Gecko/20100101 Firefox/15.0.1',
-               'Referer' : 'http://www.google.com'}
+    headers = {'User-agent' : 'Mozilla/5.0 (Windows NT 6.1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/41.0.2228.0 Safari/537.36 VietMedia/1.0',
+                 'Referers' : 'http://www..google.com'}
   try:
-    data = None
-    if params is not None:
-      data = urllib.urlencode(params)
-    req = urllib2.Request(url,data,headers)
+    req = urllib2.Request(url,headers=headers)
     f = urllib2.urlopen(req)
     body=f.read()
     return body
-  except urllib2.URLError, e:
-    print 'We failed to open "%s".' % url
-    if hasattr(e, 'reason'):
-        print 'We failed to reach a server.'
-        print 'Reason: ', e.reason
-    if hasattr(e, 'code'):
-        print 'We failed with error code - %s.' % e.code
-
-
-def build_menu():
-  content = getCache('build_menu')
-  if content == None:
-    content = make_request('http://megabox.vn/')
-    setCache('build_menu',content)
-
-  soup = BeautifulSoup(str(content), convertEntities=BeautifulSoup.HTML_ENTITIES)
-  items = soup.find('div',{'class' : 'navTop'}).findAll('div')
-
-  add_dir('[COLOR red]Nổi bật/Mới nhất[/COLOR]','', 4, get_thumbnail_url())
-
-  for item in items:
-    if item.parent.a.text != u'Thiết Bị' and item.parent.a.text != u'Videos':
-      prefix = item.parent.a.text
-      subItems = item.findAll('li')
-      for subItem in subItems:
-        if subItem.get('style') is None and subItem.a.get('style') is None:
-          title = '(' + prefix + ') ' + subItem.a.text
-          url = 'http://megabox.vn/' + subItem.a.get('href')
-          if 'the-loai' in url:
-            add_dir(title, url, 3, get_thumbnail_url())
-          else:
-            add_dir(title, url, 1, get_thumbnail_url())
-  add_dir('Tìm kiếm','', 100, get_thumbnail_url())
-  add_dir('Xóa cache','', 1000, get_thumbnail_url())
-
-def home_hot():
-  add_dir('Dành cho bạn','http://megabox.vn/danh-cho-ban.html', 1, get_thumbnail_url())
-  add_dir('Mới ra lò','http://megabox.vn/moi-ra-lo.html', 1, get_thumbnail_url())
-  add_dir('Xem nhiều nhất','http://megabox.vn/hot.html', 1, get_thumbnail_url())
-  add_dir('Phim lẻ mới nhất','http://megabox.vn/phim-le/moi-nhat.html', 1, get_thumbnail_url())
-  add_dir('Phim bộ mới nhất','http://megabox.vn/phim-bo/moi-nhat.html', 1, get_thumbnail_url())
-  
-def search():
-  query = common.getUserInput('Tìm kiếm Phim', '')
-  if query is None:
-    return
-  content = make_request('http://megabox.vn/home/search/index',{'key':query})
-  soup = BeautifulSoup(str(content), convertEntities=BeautifulSoup.HTML_ENTITIES)
-  items = soup.findAll('div',{'class' : 'picAll'})
-  for item in items:
-    #espt = item.find('div',{'class':['espT', 'espT MHD']})
-    espt = item.find('div',{'class':'espT'})
-    mode = 2 #Phim bo
-    if espt is None:
-      mode = 10 #Phim le
-      espt = item.find('div',{'class':'espT MHD'})
-    if espt is not None:
-      espt = '['+ espt.text.replace(' ','') + ']-'
-    else:
-      espt = ''
-    if len(espt) > 0:
-      title = item.h4.text
-      href = item.a.get('href')
-      itemStr = str(item)
-      thumbIndex1 = itemStr.find('data-original')
-      lenPrefix = len('data-original="')
-      thumbIndex2 = itemStr.find('"',thumbIndex1+lenPrefix)
-      thumb = itemStr[thumbIndex1+lenPrefix:thumbIndex2]
-      d1 = itemStr.find('<p>')
-      d2 = itemStr.find('</p>',d1)
-      plot = itemStr[d1+3:d2]
-      add_dir(espt + title, href, mode, thumb + '?f.png',plot=plot)
-
-def list_movies(url): 
-  content = make_request(url)
-  soup = BeautifulSoup(str(content), convertEntities=BeautifulSoup.HTML_ENTITIES)
-  items = soup.findAll('div',{'class' : 'picAll'})
-  for item in items:
-    espt = item.find('div',{'class':'espT'})
-    mode = 2 #Phim bo
-    if espt is None:
-      mode = 10 #Phim le
-      espt = item.find('div',{'class':'espT MHD'})
-    if espt is not None:
-      espt = '['+ espt.b.text.replace(' ','') + ']-'
-    else:
-      mode = 1
-      espt = ''
-    title = item.find('div',{'class':'infoC'})
-    if title is not None:
-      title = title.h4.text
-    else:
-      title = item.find('div',{'class':'loadtxtP'}).a.get('title')
-    href = item.a.get('href')
-    thumb = item.find('img').get('src')
-    itemStr = str(item)
-    d1 = itemStr.find('<p>')
-    d2 = itemStr.find('</p>',d1)
-    plot = itemStr[d1+3:d2]
-    if '(0)' not in title:
-      add_dir(espt + title, href, mode, thumb + '?f.png',plot=plot)
+  except:
+    pass
     
-#dung cho link the-loai.html
-def list_movies_category(url):
-  content = make_request(url)
-  soup = BeautifulSoup(str(content), convertEntities=BeautifulSoup.HTML_ENTITIES)
-  items = soup.find('div',{'class' : 'contentSHL showsBoxEps categoriesBBox'}).findAll('div',{'class' : 'picAll'})
-  for item in items:
-    thumb = 'http://megabox.vn/' +  item.img.get('data-original')
-    infoC = item.find('div',{'class' : 'infoC'})
-    href = infoC.a.get('href')
-    title = infoC.find('h4').text
-    if '(0)' not in title:
-      add_dir(title, href, 1, thumb + '?f.png')
-    
+def alert(message):
+  xbmcgui.Dialog().ok("Oops!","",message)
 
-def play_movie(url,p=True):
-  content = make_request(url)
-  soup = BeautifulSoup(str(content), convertEntities=BeautifulSoup.HTML_ENTITIES)
-  eps = soup.find('div',{'class' : 'contentBox showsBoxEps'})
-  #phim bo
-  if not p and eps is not None:
-    items = eps.findAll('div',{'class' : 'picAll'})
-    for item in items:
-      thumb = item.find('img').get('data-original')
-      infoC = item.find('div',{'class' : 'infoC'})
-      href = 'http://megabox.vn/' + item.a.get('href')
-      title = '[' + infoC.find('h4').text + '] ' + item.find('img').get('title')
-      add_dir(title, href, 10, thumb + '?f.png')
-      
-  else:
-    m = re.findall('file:\W+http://(.*?)index.m3u8',content,re.DOTALL)
-    if (len(m) > 0):
-      url = 'http://' + m[0] + 'index.m3u8'
-      listitem = xbmcgui.ListItem(path=url)
-      xbmcplugin.setResolvedUrl(int(sys.argv[1]), True, listitem)
-    else:
-      bannerSlide = soup.find('div',{'class' : 'bannerSlide'})
-      if bannerSlide is not None:
-        url = bannerSlide.find('a').get('href')
-        content = make_request(url)
-        m = re.findall('file:\W+http://(.*?)index.m3u8',content,re.DOTALL)
-        if (len(m) > 0):
-          url = 'http://' + m[0] + 'index.m3u8'
-          listitem = xbmcgui.ListItem(path=url)
-          xbmcplugin.setResolvedUrl(int(sys.argv[1]), True, listitem)
-        else:
-          xbmcgui.Dialog().ok("Oops!","Không tìm thấy phim.","Link giả?")
-      else:
-        xbmcgui.Dialog().ok("Oops!","Không tìm thấy phim.","Link giả?")
+def notification(message, timeout=7000):
+  xbmc.executebuiltin((u'XBMC.Notification("%s", "%s", %s)' % ('VietMedia', message, timeout)).encode("utf-8"))
 
-      
-def add_link(date, name, duration, href, thumb, desc):
+def extract(key, enc):
+    dec = []
+    enc = base64.urlsafe_b64decode(enc)
+    for i in range(len(enc)):
+        key_c = key[i % len(key)]
+        dec_c = chr((256 + ord(enc[i]) - ord(key_c)) % 256)
+        dec.append(dec_c)
+    return "".join(dec)
 
-    u=sys.argv[0]+"?url="+urllib.quote_plus(href)+"&mode=10"
-
-    liz=xbmcgui.ListItem(name, iconImage="DefaultVideo.png", thumbnailImage=thumb)
-    liz.setInfo(type="Video", infoLabels={ "Title": name, "Plot": description, "Duration": duration})
-    
-    liz.setProperty('IsPlayable', 'true')
-
-    ok=xbmcplugin.addDirectoryItem(handle=int(sys.argv[1]),url=u,listitem=liz)
-
-
-def add_dir(name,url,mode,iconimage,query='',type='f',page=0,plot=''):
+def add_item(name,url,mode,iconimage,query='',type='f',plot='',page=0,playable=False):
   u=sys.argv[0]+"?url="+urllib.quote_plus(url)+"&mode="+str(mode)+"&query="+str(query)+"&type="+str(type)+"&page="+str(page)
   ok=True
   liz=xbmcgui.ListItem(name, iconImage="DefaultFolder.png", thumbnailImage=iconimage)
-  liz.setInfo( type="Video", infoLabels={ "Title": name, "plot":plot } )
-  isFolder = True;
-  if mode == 10:
+  if playable:
     liz.setProperty('IsPlayable', 'true')
-    isFolder = False
-  
-  ok=xbmcplugin.addDirectoryItem(handle=int(sys.argv[1]),url=u,listitem=liz,isFolder=isFolder)
+  liz.setInfo( type="Video", infoLabels={ "Title": name, "plot":plot } )
+  ok=xbmcplugin.addDirectoryItem(handle=int(sys.argv[1]),url=u,listitem=liz,isFolder=(not playable))
   return ok
+
+def buildCinemaMenu(url):
+  if (url is None):
+    url = extract('100%',_homeUrl)
+
+  if ':query' in url:
+    keyboardHandle = xbmc.Keyboard('','Enter search text')
+    keyboardHandle.doModal()
+    if (keyboardHandle.isConfirmed()):
+      queryText = keyboardHandle.getText()
+      if len(queryText) == 0:
+        return
+      queryText = urllib.quote_plus(queryText)
+      url = url.replace(':query',queryText)
+    else:
+      return
+
+  content = fetch_data(url)
+  jsonObject = json.loads(content)
+  if isinstance(jsonObject,list):
+    for item in jsonObject:
+      title = item['title']
+      thumb = item['thumb']
+      url = item['url']
+      description = item['description']
+      playable = item['playable']
+
+      add_item(title,url,"default",thumb,plot=description,playable=playable)
+  elif jsonObject.get('url'):
+    link = jsonObject['url']
+    if jsonObject.get('regex'):
+      try:
+        regex = jsonObject['regex']
+        content = fetch_data(link)
+        link=re.compile(regex).findall(content)[0]  
+      except:
+        pass
+    subtitle = ''
+    if jsonObject.get('subtitle'):
+      subtitle = jsonObject['subtitle']
+
+    listitem = xbmcgui.ListItem(path=link)
+    xbmcplugin.setResolvedUrl(int(sys.argv[1]), True, listitem)
+    if len(subtitle) > 0:
+      subtitlePath = xbmc.translatePath(xbmcaddon.Addon().getAddonInfo('path')).decode("utf-8")
+      subfile = xbmc.translatePath(os.path.join(subtitlePath, "temp.sub"))
+      urllib.urlretrieve (subtitle,subfile )
+      xbmc.sleep(2000)
+      xbmc.Player().setSubtitles(subfile)
+    elif jsonObject.get('subtitle'):
+      notification('Video này không có phụ đề rời.');
+
+  elif jsonObject.get('error') is not None:
+    alert(jsonObject['error'])
 
 
 def get_params():
@@ -291,12 +142,12 @@ xbmcplugin.setContent(int(sys.argv[1]), 'movies')
 
 params=get_params()
 
-url=''
+url=None
 name=None
 mode=None
-query=None
+query=''
 type='f'
-page=0
+page=1
 
 try:
     type=urllib.unquote_plus(params["type"])
@@ -319,32 +170,14 @@ try:
 except:
     pass
 try:
-    mode=int(params["mode"])
+    mode=urllib.unquote_plus(params["mode"])
 except:
     pass
 
-print "Mode: "+str(mode)
-print "URL: "+str(url)
-print "Name: "+str(name)
-print "type: "+str(type)
-print "page: "+str(page)
-print "query: "+str(query)
 
-if mode==None:
-  build_menu()
-elif mode == 1:
-  list_movies(url)
-elif mode == 2:
-  play_movie(url,False)
-elif mode == 3:
-  list_movies_category(url)
-elif mode == 4:
-  home_hot()
-elif mode == 10:
-  play_movie(url)
-elif mode == 100:
-  search()
-elif mode == 1000:
-  clearCache()
+buildCinemaMenu(url)
 
 xbmcplugin.endOfDirectory(int(sys.argv[1]))
+
+
+

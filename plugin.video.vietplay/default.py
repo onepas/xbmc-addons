@@ -1,262 +1,142 @@
 # -*- coding: utf-8 -*-
+#https://www.facebook.com/groups/vietkodi/
 
-'''
-Copyright (C) 2014                                                     
-
-This program is free software: you can redistribute it and/or modify   
-it under the terms of the GNU General Public License as published by   
-the Free Software Foundation, either version 3 of the License, or      
-(at your option) any later version.                                    
-
-This program is distributed in the hope that it will be useful,        
-but WITHOUT ANY WARRANTY; without even the implied warranty of         
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the          
-GNU General Public License for more details.                           
-
-You should have received a copy of the GNU General Public License      
-along with this program. If not, see <http://www.gnu.org/licenses/  
-'''                     
-                                                      
 import CommonFunctions as common
-import urllib,urllib2,re,os
-import random
-import json
-import time
-import xbmc,xbmcplugin,xbmcgui,xbmcaddon
-import pyfscache
+import urllib
+import urllib2
+import os
+import xbmc
+import xbmcplugin
+import xbmcgui
+import xbmcaddon
+import re, string, json
+import base64
 
-from BeautifulSoup import BeautifulSoup
 
-addon      = xbmcaddon.Addon('plugin.video.vietplay')
-profile    = xbmc.translatePath(addon.getAddonInfo('profile'))
-mysettings = xbmcaddon.Addon(id='plugin.video.vietplay')
-home       = mysettings.getAddonInfo('path')
-fanart     = xbmc.translatePath(os.path.join(home, 'fanart.jpg'))
-icon       = xbmc.translatePath(os.path.join(home, 'icon.png'))
-logos      = xbmc.translatePath(os.path.join(home, 'logos\\'))
-fptplay    = 'http://fptplay.net/'
+reload(sys);
+sys.setdefaultencoding("utf8")
 
-cachePath = xbmc.translatePath( os.path.join( home, 'cache' ) )
-cache = pyfscache.FSCache(cachePath, days=7)
+__settings__ = xbmcaddon.Addon(id='plugin.video.vietplay')
+__language__ = __settings__.getLocalizedString
+_home = __settings__.getAddonInfo('path')
+_icon = xbmc.translatePath( os.path.join( _home, 'icon.png' ))
+_homeUrl = 'maSklWtfX5ualaSQoJSZU6SVopuWmKSZoV6TlJ5qY1VhYF-Imp6VkpJfplY='
 
-__thumbnails = []
+def make_cookie_header(cookie):
+  cookieHeader = ""
+  for value in cookie.values():
+      cookieHeader += "%s=%s; " % (value.key, value.value)
+  return cookieHeader
 
-def messageBox(title='VietMovie', message = 'message'):
-    dialog = xbmcgui.Dialog()
-    dialog.ok(str(title), str(message))
+def fetch_data(url, headers=None):
+  if headers is None:
+    headers = {'User-agent' : 'Mozilla/5.0 (Windows NT 6.1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/41.0.2228.0 Safari/537.36 VietMedia/1.0',
+                 'Referers' : 'http://www..google.com'}
+  try:
+    req = urllib2.Request(url,headers=headers)
+    f = urllib2.urlopen(req)
+    body=f.read()
+    return body
+  except:
+    pass
+    
+def alert(message):
+  xbmcgui.Dialog().ok("Oops!","",message)
 
-def make_request(url, headers=None):
-    if headers is None:
-        headers = {'User-agent' : 'Mozilla/5.0 (Windows NT 6.1; WOW64; rv:15.0) Gecko/20100101 Firefox/15.0.1',
-                   'Referer' : 'http://www.google.com'}
-    try:
-        req = urllib2.Request(url,headers=headers)
-        f = urllib2.urlopen(req)
-        body=f.read()
-        return body
-    except urllib2.URLError, e:
-        print 'We failed to open "%s".' % url
-        if hasattr(e, 'reason'):
-            print 'We failed to reach a server.'
-            print 'Reason: ', e.reason
-        if hasattr(e, 'code'):
-            print 'We failed with error code - %s.' % e.code
+def notification(message, timeout=7000):
+  xbmc.executebuiltin((u'XBMC.Notification("%s", "%s", %s)' % ('VietMedia', message, timeout)).encode("utf-8"))
 
-def setCache(key,value):
-    try:
-        cache.expire(key)
-    except:
+def extract(key, enc):
+    dec = []
+    enc = base64.urlsafe_b64decode(enc)
+    for i in range(len(enc)):
+        key_c = key[i % len(key)]
+        dec_c = chr((256 + ord(enc[i]) - ord(key_c)) % 256)
+        dec.append(dec_c)
+    return "".join(dec)
+
+def add_item(name,url,mode,iconimage,query='',type='f',plot='',page=0,playable=False):
+  u=sys.argv[0]+"?url="+urllib.quote_plus(url)+"&mode="+str(mode)+"&query="+str(query)+"&type="+str(type)+"&page="+str(page)
+  ok=True
+  liz=xbmcgui.ListItem(name, iconImage="DefaultFolder.png", thumbnailImage=iconimage)
+  if playable:
+    liz.setProperty('IsPlayable', 'true')
+  liz.setInfo( type="Video", infoLabels={ "Title": name, "plot":plot } )
+  ok=xbmcplugin.addDirectoryItem(handle=int(sys.argv[1]),url=u,listitem=liz,isFolder=(not playable))
+  return ok
+
+def buildCinemaMenu(url):
+  if (url is None):
+    url = extract('100%',_homeUrl)
+
+  if ':query' in url:
+    keyboardHandle = xbmc.Keyboard('','Enter search text')
+    keyboardHandle.doModal()
+    if (keyboardHandle.isConfirmed()):
+      queryText = keyboardHandle.getText()
+      if len(queryText) == 0:
+        return
+      queryText = urllib.quote_plus(queryText)
+      url = url.replace(':query',queryText)
+    else:
+      return
+
+  content = fetch_data(url)
+  jsonObject = json.loads(content)
+  if isinstance(jsonObject,list):
+    for item in jsonObject:
+      title = item['title']
+      thumb = item['thumb']
+      url = item['url']
+      description = item['description']
+      playable = item['playable']
+
+      add_item(title,url,"default",thumb,plot=description,playable=playable)
+  elif jsonObject.get('url'):
+    link = jsonObject['url']
+    if jsonObject.get('regex'):
+      try:
+        regex = jsonObject['regex']
+        content = fetch_data(link)
+        link=re.compile(regex).findall(content)[0]  
+      except:
         pass
-    try:
-        cache[key] = value
-    except:
-        pass
+    subtitle = ''
+    if jsonObject.get('subtitle'):
+      subtitle = jsonObject['subtitle']
 
-def getCache(key):
-    try:
-        value = cache[key]
-        return value
-    except:
-        return None
+    listitem = xbmcgui.ListItem(path=link)
+    xbmcplugin.setResolvedUrl(int(sys.argv[1]), True, listitem)
+    if len(subtitle) > 0:
+      subtitlePath = xbmc.translatePath(xbmcaddon.Addon().getAddonInfo('path')).decode("utf-8")
+      subfile = xbmc.translatePath(os.path.join(subtitlePath, "temp.sub"))
+      urllib.urlretrieve (subtitle,subfile )
+      xbmc.sleep(2000)
+      xbmc.Player().setSubtitles(subfile)
+    elif jsonObject.get('subtitle'):
+      notification('Video này không có phụ đề rời.');
 
-def clearCache():
-    try:
-        cache.purge()
-    except:
-        pass
+  elif jsonObject.get('error') is not None:
+    alert(jsonObject['error'])
 
-def get_thumbnail_url():
-    global __thumbnails
-    url = ''
-    try:
-        if len(__thumbnails) == 0:
-            content = getCache('thumbnails')
-            if content == None:
-                content = make_request('https://raw.github.com/onepas/xbmc-addons/master/thumbnails/thumbnails.xml')
-                setCache('thumbnails',content)
-
-            soup = BeautifulSoup(str(content), convertEntities=BeautifulSoup.HTML_ENTITIES)
-            __thumbnails = soup.findAll('thumbnail')
-
-        url = random.choice(__thumbnails).text 
-    except:
-        pass
-      
-    return url
-
-def _makeCookieHeader(cookie):
-	cookieHeader = ""
-	for value in cookie.values():
-		cookieHeader += "%s=%s; " % (value.key, value.value)
-	return cookieHeader
-
-
-def home():
-	link = getCache('home')
-	if link == None:
-		link=make_request(fptplay)
-		setCache('home', link)
-	
-	match=re.compile('<ul class="top_menu reponsive">(.+?)</ul>',re.DOTALL).findall(link)
-	if len(match) > 0:
-		link = match[0]
-		match=re.compile("<a href=\"(.+?)\"\s*class=\".+?\">(.+?)<\/a>").findall(link)
-		for url,name in match:
-			addDir( name , fptplay + url ,1, get_thumbnail_url())	
-
-	
-	addDir('Thuý Nga - Tổng hợp','http://ott.thuynga.com/vi/genre/index/22/3', 200, get_thumbnail_url())
-	addDir('Thuý Nga - Hài kịch','http://ott.thuynga.com/vi/genre/index/26/3', 200, get_thumbnail_url())
-	addDir('Thuý Nga - Hậu trường','http://ott.thuynga.com/vi/genre/index/64/3', 200, get_thumbnail_url())
-
-	addDir('Tìm kiếm',fptplay, 100, get_thumbnail_url())	
-	addDir('Xóa cache',fptplay, 1000, get_thumbnail_url())		
-								
-								
-def show_thuy_nga_list(url):
-	req = urllib2.Request(url)
-	req.add_header('User-Agent', 'Mozilla/5.0 (Windows; U; Windows NT 5.1; en-GB; rv:1.9.0.4) Gecko/2008092417 Firefox/4.0.4')
-	response = urllib2.urlopen(req, timeout=90)
-	content=response.read()
-	response.close()
-
-	thuyngaUrl = 'http://ott.thuynga.com/'
-
-	match=re.compile('<div class="image-wrapper">.*?<a href="(.*?)" style="background-image: url\(\'(.*?)\'\)".*?<h3>.*?<a href=".*?">(.*?)</a>.*?</h3>.*?<div class="content">.*?<p>(.*?)</p>.*?</div>.*?<div style="clear:both;"></div>',re.DOTALL).findall(content)
-	for url,thumbnail,title,summary in match:	
-		addDir(title,thuyngaUrl + url,299,thumbnail + '?f.png',plot=summary,playable=True)
-
-	match=re.compile('<ul>(.*?)<div class="next button">.*?</ul>').findall(content)
-	if len(match) > 0:
-		content = match[0]
-		match=re.compile('<li><a href="(.*?)">(.*?)</a></li>').findall(content)
-		for url,name in match:	
-			addDir('[COLOR lime]Trang ' + name + '[/COLOR]', url, 200, get_thumbnail_url())
-
-def show_thuy_nga_play(url):
-	req = urllib2.Request(url)
-	req.add_header('User-Agent', 'Mozilla/5.0 (Windows; U; Windows NT 5.1; en-GB; rv:1.9.0.4) Gecko/2008092417 Firefox/4.0.4')
-	response = urllib2.urlopen(req, timeout=90)
-	content=response.read()
-	response.close()
-
-	match=re.compile('var iosUrl = \'(.*?)\';').findall(content)
-	if len(match) > 0:
-		link = match[0]
-		listitem = xbmcgui.ListItem(path=link)
-      	xbmcplugin.setResolvedUrl(int(sys.argv[1]), True, listitem)
-
-def plist(url,page = 0):	
-	for page in range(1,20):
-		url_with_page = url + '/' + str(page)
-		json_data=make_request(url_with_page)
-		match=json.loads(json_data)
-		if len(match['videos_list']) == 0:
-			break
-		for video in match['videos_list']:
-			title = video['title']
-			thumbnail = video['thumb']
-			description = video['description']
-			link_video = video['link_video']
-			episode_type = video['episode_type']
-			if 'Single' in episode_type:
-				addDir( title.encode('utf8'),fptplay + link_video,4,thumbnail,plot=description,playable=True)
-			else:
-				addDir( title.encode('utf8'),fptplay + link_video,4,thumbnail,plot=description)
-
-
-def dirs(url):
-	link=make_request(url)
-	
-	match=re.compile('<a class="col-xs-12 link_title_header" href="/the-loai-more/(.+?)/1">\s*<span class="pull-left" >(.+?)</span >').findall(link)
-	
-	for url,name in match:	
-		addDir(name,fptplay + 'get_all_vod_structure/news/' + url,2, get_thumbnail_url(), page=1)
-
-def episodes(url):
-
-	link=make_request(url)
-	title=re.compile('<title >([^\']+)</title >').findall(link)	
-	title = title[-1].replace('&#39;',"'")
-	match=re.compile('<div class="eps_vod caption">\s*<a data="(.+?)".+?>(.+?)</a>',re.DOTALL).findall(link)
-	if len(match) > 0:
-		for url,name in match:
-			addDir(('%s   -   %s' % (name,title)),('%s%s' % (fptplay, url)),5, get_thumbnail_url(),playable=True)
-	else:
-		match=re.compile("CallGetVOD\('(.+?)', '(.+?)', currentChapter\);").findall(link)
-		if len(match) > 0:
-			url = fptplay + 'getvod/' + match[0][0] + '/' + match[0][1] + '/1'
-			vlinks(url,'')
-											
-
-def vlinks(url,name):
-	link=make_request(url)
-	listitem = xbmcgui.ListItem(path=link)
-	xbmcplugin.setResolvedUrl(int(sys.argv[1]), True, listitem)
-
-def search():
-	query = common.getUserInput('Tìm kiếm Phim', '')
-  	if query is None:
-		return
-	url = fptplay + '/search/' + urllib.quote_plus(query)
-
-	link=make_request(url)
-	match=re.compile('<a href="(.+?)" title="(.+?)" class="item_image">\s*<img src="(.+?)".+?').findall(link)
-
-	for url,name, thumbnail in match:
-		title = name.replace('&#39;',"'")
-		addDir( title,fptplay + url,4,thumbnail,playable=True)
 
 def get_params():
-    param=[]
-    paramstring=sys.argv[2]
-    if len(paramstring)>=2:
-        params=sys.argv[2]
-        cleanedparams=params.replace('?','')
-        if (params[len(params)-1]=='/'):
-            params=params[0:len(params)-2]
-        pairsofparams=cleanedparams.split('&')
-        param={}
-        for i in range(len(pairsofparams)):
-            splitparams={}
-            splitparams=pairsofparams[i].split('=')
-            if (len(splitparams))==2:
-                param[splitparams[0]]=splitparams[1]
-                        
-    return param
+  param=[]
+  paramstring=sys.argv[2]
+  if len(paramstring)>=2:
+      params=sys.argv[2]
+      cleanedparams=params.replace('?','')
+      if (params[len(params)-1]=='/'):
+          params=params[0:len(params)-2]
+      pairsofparams=cleanedparams.split('&')
+      param={}
+      for i in range(len(pairsofparams)):
+          splitparams={}
+          splitparams=pairsofparams[i].split('=')
+          if (len(splitparams))==2:
+              param[splitparams[0]]=splitparams[1]
 
-def addDir(name,url,mode,iconimage,page=0,plot='',playable=False):
-    u=sys.argv[0]+"?url="+urllib.quote_plus(url)+"&mode="+str(mode)+"&page="+str(page)+"&name="+urllib.quote_plus(name)
-    ok=True
-    liz=xbmcgui.ListItem(name, iconImage="DefaultFolder.png", thumbnailImage=iconimage)
-    isFolder = True
-    liz.setInfo( type="Video", infoLabels={ "Title": name, "plot":plot } )
-    if playable:
-    	liz.setProperty('IsPlayable', 'true')
-    	isFolder = False
-    ok=xbmcplugin.addDirectoryItem(handle=int(sys.argv[1]),url=u,listitem=liz,isFolder=isFolder)
-    return ok
-                      
+  return param
 
 xbmcplugin.setContent(int(sys.argv[1]), 'movies')
 
@@ -265,8 +145,22 @@ params=get_params()
 url=None
 name=None
 mode=None
-page=0
+query=''
+type='f'
+page=1
 
+try:
+    type=urllib.unquote_plus(params["type"])
+except:
+    pass
+try:
+    page=int(urllib.unquote_plus(params["page"]))
+except:
+    pass
+try:
+    query=urllib.unquote_plus(params["query"])
+except:
+    pass
 try:
     url=urllib.unquote_plus(params["url"])
 except:
@@ -276,47 +170,14 @@ try:
 except:
     pass
 try:
-    mode=int(params["mode"])
+    mode=urllib.unquote_plus(params["mode"])
 except:
     pass
 
-try:
-    page=int(params["page"])
-except:
-    pass
 
-print "Mode: "+str(mode)
-print "URL: "+str(url)
-print "Name: "+str(name)
+buildCinemaMenu(url)
 
-if mode==None or url==None or len(url)<1:
-    print ""
-    home()
-		
-elif mode==1:
-    print ""+url
-    dirs(url)
-		
-elif mode==2:
-    print ""+url
-    plist(url,page)
-			
-elif mode==4:
-    print ""+url
-    episodes(url)
-		
-elif mode==5:
-   	vlinks(url,name)
-
-elif mode==200:
-   	show_thuy_nga_list(url)
-
-elif mode==299:
-   	show_thuy_nga_play(url)
-
-elif mode==100:
-   	search()
-			
-elif mode==1000:
-   	clearCache()
 xbmcplugin.endOfDirectory(int(sys.argv[1]))
+
+
+
